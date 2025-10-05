@@ -39,3 +39,6 @@ coverage_filtered.info
 *.gcda
 *.gcno
 *.gcov*
+
+# Replit assets
+attached_assets/
