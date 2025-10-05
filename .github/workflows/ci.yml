@@ -151,20 +151,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage_report/
+          path: tmp/coverage/coverage_report/
           retention-days: 30
           
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data
-          path: coverage_filtered.info
+          path: tmp/coverage/coverage_filtered.info
           retention-days: 30
           
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request'
         uses: romeovs/lcov-reporter-action@v0.3.1
         with:
-          lcov-file: coverage_filtered.info
+          lcov-file: tmp/coverage/coverage_filtered.info
           github-token: ${{ secrets.GITHUB_TOKEN }}
           filter-changed-files: true

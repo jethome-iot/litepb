@@ -9,7 +9,7 @@ echo "Step 1: Cleaning previous coverage data and build..."
 find . -name "*.gcda" -delete
 find . -name "*.gcno" -delete
 find . -name "*.gcov*" -delete
-rm -rf coverage_report/
+rm -rf tmp/coverage/
 rm -rf .pio/build/coverage
 rm -rf tmp/gcov/
 echo "✓ Cleaned previous coverage data"
@@ -23,6 +23,8 @@ echo ""
 echo "Step 3: Capturing coverage data..."
 # Create tmp/gcov directory for intermediate gcov files
 mkdir -p tmp/gcov
+# Create tmp/coverage directory for all coverage outputs
+mkdir -p tmp/coverage
 
 # Find gcov efficiently - check if it's in PATH first, then look in nix store
 GCOV_TOOL=$(which gcov 2>/dev/null)
@@ -46,7 +48,7 @@ echo "Using gcov at: $GCOV_TOOL"
 cd tmp/gcov
 lcov --capture \
      --directory ../../.pio/build/coverage \
-     --output-file ../../coverage.info \
+     --output-file ../coverage/coverage.info \
      --gcov-tool "$GCOV_TOOL" \
      --ignore-errors inconsistent \
      --quiet || echo "Note: lcov may show warnings (this is expected)"
@@ -59,17 +61,17 @@ echo "✓ Coverage data captured"
 echo ""
 
 echo "Step 4: Filtering coverage to src/litepb/ only..."
-lcov --extract coverage.info \
+lcov --extract tmp/coverage/coverage.info \
      "*/src/litepb/*" \
-     --output-file coverage_filtered.info \
+     --output-file tmp/coverage/coverage_filtered.info \
      --quiet || true
 
 echo "✓ Filtered to LitePB source files"
 echo ""
 
 echo "Step 5: Generating HTML report..."
-genhtml coverage_filtered.info \
-        --output-directory coverage_report \
+genhtml tmp/coverage/coverage_filtered.info \
+        --output-directory tmp/coverage/coverage_report \
         --title "LitePB Code Coverage" \
         --legend \
         --quiet || echo "Report generation completed"
@@ -79,10 +81,10 @@ echo ""
 
 echo "Step 6: Coverage Summary"
 echo "========================"
-lcov --list coverage_filtered.info || true
+lcov --list tmp/coverage/coverage_filtered.info || true
 
 echo ""
 echo "======================================"
 echo "Coverage report generated successfully!"
-echo "Open coverage_report/index.html to view the detailed report"
+echo "Open tmp/coverage/coverage_report/index.html to view the detailed report"
 echo "======================================"
