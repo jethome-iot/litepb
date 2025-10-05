@@ -9,7 +9,7 @@ on:
 jobs:
   prepare:
     name: Prepare Environment
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     outputs:
       container_image: ${{ steps.image.outputs.name }}
     steps:
@@ -21,7 +21,7 @@ jobs:
   
   format-check:
     name: Format Check
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     needs: prepare
     container:
       image: ${{ needs.prepare.outputs.container_image }}
@@ -38,7 +38,7 @@ jobs:
         
   test:
     name: PlatformIO Tests
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     needs: prepare
     container:
       image: ${{ needs.prepare.outputs.container_image }}
@@ -55,7 +55,7 @@ jobs:
         
   test-interop:
     name: Test Interop
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     needs: prepare
     container:
       image: ${{ needs.prepare.outputs.container_image }}
@@ -72,7 +72,7 @@ jobs:
         
   build-examples:
     name: Build Examples
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     needs: prepare
     container:
       image: ${{ needs.prepare.outputs.container_image }}
@@ -128,7 +128,7 @@ jobs:
           
   coverage:
     name: Code Coverage
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     needs: prepare
     container:
       image: ${{ needs.prepare.outputs.container_image }}

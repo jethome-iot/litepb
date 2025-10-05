@@ -19,7 +19,7 @@ permissions:
 jobs:
   build-and-push:
     name: Build and Push to GHCR
-    runs-on: [self-hosted, X64]
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
