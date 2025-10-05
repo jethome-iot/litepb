@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library-manifest-schema.json",
+  "name": "LitePB",
+  "version": "1.0.0",
+  "description": "Lightweight Protocol Buffers implementation for embedded systems with RPC support",
+  "keywords": [
+    "protobuf",
+    "protocol-buffers",
+    "serialization",
+    "rpc",
+    "embedded",
+    "esp32",
+    "stm32",
+    "arduino",
+    "lightweight"
+  ],
+  "homepage": "https://github.com/litepb/litepb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/litepb/litepb.git"
+  },
+  "authors": [
+    {
+      "name": "LitePB Contributors",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*",
+  "headers": "litepb.h",
+  "examples": [
+    "examples/serialization/basic/*",
+    "examples/serialization/all_types/*",
+    "examples/rpc/litepb_rpc/*"
+  ],
+  "dependencies": {},
+  "export": {
+    "include": [
+      "include/*",
+      "src/*",
+      "scripts/platformio_generator.py",
+      "examples/*",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      "tests/*",
+      "coverage_report/*",
+      "tmp/*",
+      ".github/*",
+      "*.gcno",
+      "*.gcda"
+    ]
+  },
+  "build": {
+    "flags": [],
+    "unflags": [],
+    "includeDir": "include",
+    "srcDir": "src",
+    "srcFilter": "+<*> -<.git/> -<.svn/>",
+    "extraScript": "scripts/platformio_generator.py",
+    "libLDFMode": "chain+"
+  }
+}

@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package switch_service;
+
+import "litepb/rpc_options.proto";
+
+service SwitchService {
+    option (litepb.rpc.service_id) = 2;
+    
+    rpc TurnOn(TurnOnRequest) returns (TurnOnResponse) {
+        option (litepb.rpc.method_id) = 1;
+    }
+    
+    rpc TurnOff(TurnOffRequest) returns (TurnOffResponse) {
+        option (litepb.rpc.method_id) = 2;
+    }
+    
+    rpc Toggle(ToggleRequest) returns (ToggleResponse) {
+        option (litepb.rpc.method_id) = 3;
+    }
+    
+    rpc StateChanged(StateChangedEvent) returns (StateChangedEvent) {
+        option (litepb.rpc.method_id) = 4;
+        option (litepb.rpc.fire_and_forget) = true;
+    }
+}
+
+message TurnOnRequest {
+    uint32 switch_id = 1;
+}
+
+message TurnOnResponse {
+    bool success = 1;
+    bool is_on = 2;
+}
+
+message TurnOffRequest {
+    uint32 switch_id = 1;
+}
+
+message TurnOffResponse {
+    bool success = 1;
+    bool is_on = 2;
+}
+
+message ToggleRequest {
+    uint32 switch_id = 1;
+}
+
+message ToggleResponse {
+    bool success = 1;
+    bool is_on = 2;
+}
+
+message StateChangedEvent {
+    uint32 switch_id = 1;
+    bool is_on = 2;
+    string reason = 3;
+}

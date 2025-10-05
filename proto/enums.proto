@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package test.enums;
+
+// Basic enum
+enum Color {
+    COLOR_UNSPECIFIED = 0;
+    COLOR_RED = 1;
+    COLOR_GREEN = 2;
+    COLOR_BLUE = 3;
+}
+
+// Enum with custom values
+enum Priority {
+    PRIORITY_UNSPECIFIED = 0;
+    PRIORITY_LOW = 10;
+    PRIORITY_MEDIUM = 50;
+    PRIORITY_HIGH = 100;
+    PRIORITY_CRITICAL = 999;
+}
+
+// Enum with negative values
+enum Temperature {
+    TEMP_UNKNOWN = 0;
+    TEMP_FREEZING = -10;
+    TEMP_COLD = -1;
+    TEMP_NORMAL = 20;
+    TEMP_HOT = 30;
+    TEMP_BOILING = 100;
+}
+
+// Enum with aliases
+enum AliasedStatus {
+    option allow_alias = true;
+    STATUS_UNKNOWN = 0;
+    STATUS_STARTED = 1;
+    STATUS_RUNNING = 1;  // Alias for STARTED
+    STATUS_FINISHED = 2;
+    STATUS_DONE = 2;     // Alias for FINISHED
+}
+
+// Message with enum fields
+message EnumMessage {
+    Color color = 1;
+    Priority priority = 2;
+    Temperature temperature = 3;
+    AliasedStatus status = 4;
+}
+
+// Nested enum in message
+message MessageWithNestedEnum {
+    enum InternalState {
+        STATE_UNSPECIFIED = 0;
+        STATE_INIT = 1;
+        STATE_READY = 2;
+        STATE_BUSY = 3;
+        STATE_ERROR = 4;
+    }
+    
+    InternalState state = 1;
+    Color external_color = 2;
+}
+
+// Repeated enum fields
+message RepeatedEnums {
+    repeated Color colors = 1;
+    repeated Priority priorities = 2;
+    repeated MessageWithNestedEnum.InternalState states = 3;
+}
+
+// Enum in oneof
+message OneofWithEnum {
+    oneof result {
+        string text_result = 1;
+        int32 numeric_result = 2;
+        Color color_result = 3;
+    }
+}
+
+// Enum as map key and value
+message EnumMaps {
+    map<int32, Color> id_to_color = 1;
+    map<string, Priority> name_to_priority = 2;
+    // Note: enums cannot be map keys in protobuf
+    map<int32, Temperature> code_to_temp = 3;
+}
+
+// Large enum
+enum HttpStatus {
+    HTTP_UNSPECIFIED = 0;
+    HTTP_CONTINUE = 100;
+    HTTP_SWITCHING_PROTOCOLS = 101;
+    HTTP_OK = 200;
+    HTTP_CREATED = 201;
+    HTTP_ACCEPTED = 202;
+    HTTP_NO_CONTENT = 204;
+    HTTP_MOVED_PERMANENTLY = 301;
+    HTTP_FOUND = 302;
+    HTTP_NOT_MODIFIED = 304;
+    HTTP_BAD_REQUEST = 400;
+    HTTP_UNAUTHORIZED = 401;
+    HTTP_FORBIDDEN = 403;
+    HTTP_NOT_FOUND = 404;
+    HTTP_METHOD_NOT_ALLOWED = 405;
+    HTTP_CONFLICT = 409;
+    HTTP_INTERNAL_SERVER_ERROR = 500;
+    HTTP_NOT_IMPLEMENTED = 501;
+    HTTP_BAD_GATEWAY = 502;
+    HTTP_SERVICE_UNAVAILABLE = 503;
+}
+
+// Multiple enums in one file
+enum DayOfWeek {
+    DAY_UNSPECIFIED = 0;
+    DAY_MONDAY = 1;
+    DAY_TUESDAY = 2;
+    DAY_WEDNESDAY = 3;
+    DAY_THURSDAY = 4;
+    DAY_FRIDAY = 5;
+    DAY_SATURDAY = 6;
+    DAY_SUNDAY = 7;
+}
+
+enum Month {
+    MONTH_UNSPECIFIED = 0;
+    MONTH_JANUARY = 1;
+    MONTH_FEBRUARY = 2;
+    MONTH_MARCH = 3;
+    MONTH_APRIL = 4;
+    MONTH_MAY = 5;
+    MONTH_JUNE = 6;
+    MONTH_JULY = 7;
+    MONTH_AUGUST = 8;
+    MONTH_SEPTEMBER = 9;
+    MONTH_OCTOBER = 10;
+    MONTH_NOVEMBER = 11;
+    MONTH_DECEMBER = 12;
+}
+
+// Using multiple enums
+message Calendar {
+    DayOfWeek day_of_week = 1;
+    Month month = 2;
+    int32 day_of_month = 3;
+    int32 year = 4;
+}
+
+// Optional enum field
+message OptionalEnumMessage {
+    optional Color optional_color = 1;
+    Color required_color = 2;
+}
+
+// Default enum value test
+message DefaultEnumTest {
+    Color color = 1;  // Will default to COLOR_UNSPECIFIED (0)
+    Priority priority = 2;  // Will default to PRIORITY_UNSPECIFIED (0)
+}

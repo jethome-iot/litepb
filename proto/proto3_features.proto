@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package test.proto3;
+
+// Test proto3-specific features
+message Proto3Message {
+    // Singular fields (implicit presence)
+    string implicit_string = 1;
+    int32 implicit_int32 = 2;
+    bool implicit_bool = 3;
+    double implicit_double = 4;
+    
+    // Explicit optional fields (proto3 >= 3.15)
+    optional string explicit_optional_string = 5;
+    optional int32 explicit_optional_int32 = 6;
+    optional bool explicit_optional_bool = 7;
+    
+    // Repeated fields
+    repeated string repeated_values = 8;
+    
+    // Message field (always optional-like behavior)
+    NestedProto3 nested_message = 9;
+    
+    // Repeated message
+    repeated NestedProto3 repeated_messages = 10;
+}
+
+message NestedProto3 {
+    string name = 1;
+    int32 value = 2;
+}
+
+// Reserved fields and names
+message ReservedMessage {
+    // Active fields
+    string active_field = 1;
+    int32 another_field = 3;
+    
+    // Reserved field numbers
+    reserved 2, 15, 9 to 11;
+    
+    // Reserved field names
+    reserved "old_field", "deprecated_name";
+}
+
+// JSON field names
+message JsonNameMessage {
+    string regular_field = 1;
+    string custom_json_field = 2 [json_name = "customJsonName"];
+    int32 another_custom = 3 [json_name = "different_name"];
+}
+
+// Any type support (requires google/protobuf/any.proto normally)
+// For our implementation, we'll handle this specially
+message AnyMessage {
+    string type_url = 1;
+    bytes value = 2;
+}
+
+// Wrapper types equivalent (without importing google wrappers)
+message WrapperTypesTest {
+    // These would normally use google.protobuf wrappers
+    optional double double_value = 1;
+    optional float float_value = 2;
+    optional int64 int64_value = 3;
+    optional uint64 uint64_value = 4;
+    optional int32 int32_value = 5;
+    optional uint32 uint32_value = 6;
+    optional bool bool_value = 7;
+    optional string string_value = 8;
+    optional bytes bytes_value = 9;
+}
+
+// Empty message
+message Empty {
+}
+
+// Field presence test
+message FieldPresenceTest {
+    // Singular primitive (no presence)
+    int32 primitive_field = 1;
+    
+    // Optional primitive (has presence)
+    optional int32 optional_primitive = 2;
+    
+    // Message field (has presence)
+    NestedProto3 message_field = 3;
+    
+    // Repeated field (check if empty)
+    repeated int32 repeated_field = 4;
+}
+
+// Proto3 enum must start with 0
+enum Proto3Enum {
+    UNKNOWN = 0;  // Must be 0
+    STARTED = 1;
+    RUNNING = 2;
+    STOPPED = 3;
+}
+
+// Allow alias in enum
+enum AliasEnum {
+    option allow_alias = true;
+    UNKNOWN_ALIAS = 0;
+    STARTED_ALIAS = 1;
+    RUNNING_ALIAS = 2;
+    ALSO_RUNNING = 2;  // Alias for RUNNING_ALIAS
+}

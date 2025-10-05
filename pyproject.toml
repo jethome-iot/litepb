@@ -1,0 +1,10 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "jinja2==3.1.4",
+    "platformio>=6.1.18",
+    "protobuf==5.29.5",
+]

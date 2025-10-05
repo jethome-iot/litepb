@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package test.oneof;
+
+// Basic oneof
+message BasicOneof {
+    oneof value {
+        string string_value = 1;
+        int32 int_value = 2;
+        bool bool_value = 3;
+        double double_value = 4;
+    }
+}
+
+// Oneof with message types
+message OneofWithMessages {
+    oneof data {
+        SimpleMessage simple = 1;
+        ComplexMessage complex = 2;
+        bytes raw_bytes = 3;
+    }
+}
+
+message SimpleMessage {
+    string text = 1;
+}
+
+message ComplexMessage {
+    int32 id = 1;
+    string name = 2;
+    repeated string tags = 3;
+    map<string, int32> values = 4;
+}
+
+// Multiple oneofs in same message
+message MultipleOneofs {
+    oneof first {
+        string first_string = 1;
+        int32 first_int = 2;
+    }
+    
+    oneof second {
+        bool second_bool = 3;
+        double second_double = 4;
+    }
+    
+    oneof third {
+        SimpleMessage third_message = 5;
+        bytes third_bytes = 6;
+    }
+    
+    // Regular fields mixed with oneofs
+    string regular_field = 7;
+    repeated int32 repeated_field = 8;
+}
+
+// Oneof with all scalar types
+message OneofAllTypes {
+    oneof value {
+        double double_value = 1;
+        float float_value = 2;
+        int32 int32_value = 3;
+        int64 int64_value = 4;
+        uint32 uint32_value = 5;
+        uint64 uint64_value = 6;
+        sint32 sint32_value = 7;
+        sint64 sint64_value = 8;
+        fixed32 fixed32_value = 9;
+        fixed64 fixed64_value = 10;
+        sfixed32 sfixed32_value = 11;
+        sfixed64 sfixed64_value = 12;
+        bool bool_value = 13;
+        string string_value = 14;
+        bytes bytes_value = 15;
+    }
+}
+
+// Nested oneofs
+message NestedOneofs {
+    message InnerMessage {
+        oneof inner_value {
+            string text = 1;
+            int32 number = 2;
+        }
+    }
+    
+    oneof outer_value {
+        InnerMessage inner = 1;
+        string direct_string = 2;
+    }
+}
+
+// Oneof with enum
+message OneofWithEnum {
+    enum DataType {
+        UNKNOWN = 0;
+        TEXT = 1;
+        NUMBER = 2;
+        BINARY = 3;
+    }
+    
+    oneof typed_value {
+        string text_data = 1;
+        int64 number_data = 2;
+        bytes binary_data = 3;
+        DataType type_only = 4;
+    }
+}
+
+// Empty oneof (all fields unset)
+message EmptyOneof {
+    oneof maybe_value {
+        string str = 1;
+        int32 num = 2;
+    }
+    
+    // Other fields to ensure message isn't completely empty
+    string other_field = 3;
+}
+
+// Large oneof with many choices
+message LargeOneof {
+    oneof data {
+        string choice1 = 1;
+        int32 choice2 = 2;
+        bool choice3 = 3;
+        double choice4 = 4;
+        float choice5 = 5;
+        int64 choice6 = 6;
+        uint32 choice7 = 7;
+        uint64 choice8 = 8;
+        bytes choice9 = 9;
+        SimpleMessage choice10 = 10;
+        ComplexMessage choice11 = 11;
+        sint32 choice12 = 12;
+        sint64 choice13 = 13;
+        fixed32 choice14 = 14;
+        fixed64 choice15 = 15;
+    }
+}
+
+// Oneof in repeated context (not directly supported, but through wrapper)
+message RepeatedOneofWrapper {
+    repeated OneofContainer items = 1;
+}
+
+message OneofContainer {
+    oneof value {
+        string str = 1;
+        int32 num = 2;
+    }
+}

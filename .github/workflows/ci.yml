@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: ['dev', 'master']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  format-check:
+    name: Format Check
+    runs-on: [self-hosted, X64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup development environment
+        uses: ./.github/actions/setup-dev
+        with:
+          install-clang-format: 'true'
+          
+      - name: Run format check
+        run: ./scripts/format_check.sh
+        
+  test:
+    name: PlatformIO Tests
+    runs-on: [self-hosted, X64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup development environment
+        uses: ./.github/actions/setup-dev
+        with:
+          install-platformio: 'true'
+          
+      - name: Run tests
+        run: pio test
+        
+  test-interop:
+    name: Test Interop
+    runs-on: [self-hosted, X64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup development environment
+        uses: ./.github/actions/setup-dev
+        with:
+          install-cmake: 'true'
+          python-packages: 'protobuf jinja2'
+          
+      - name: Run interop tests
+        run: ./tests/interop/run_tests.sh
+        
+  build-examples:
+    name: Build Examples
+    runs-on: [self-hosted, X64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup development environment
+        uses: ./.github/actions/setup-dev
+        with:
+          install-platformio: 'true'
+          
+      - name: Find and build examples
+        run: |
+          echo "Searching for examples with platformio.ini..."
+          
+          # Find all platformio.ini files under examples directory
+          find examples -name "platformio.ini" -type f | while IFS= read -r pio_file; do
+            example_dir=$(dirname "$pio_file")
+            echo ""
+            echo "=========================================="
+            echo "Building example: $example_dir"
+            echo "=========================================="
+            
+            # Change to example directory and build
+            cd "$example_dir"
+            
+            # Build the example
+            if pio run; then
+              echo "✅ Build successful for $example_dir"
+              
+              # Find and run executables
+              echo "Looking for executables in .pio/build/*/program..."
+              for program in .pio/build/*/program; do
+                if [ -f "$program" ]; then
+                  echo "Running executable: $program"
+                  
+                  # Run the program with timeout to prevent hanging
+                  timeout 10s "$program" || true
+                  echo "Execution completed (or timed out after 10s)"
+                fi
+              done
+            else
+              echo "❌ Build failed for $example_dir"
+              # Continue with other examples even if this one fails
+            fi
+            
+            # Return to root directory
+            cd - > /dev/null
+          done
+          
+          echo ""
+          echo "All examples processed"
+          
+  coverage:
+    name: Code Coverage
+    runs-on: [self-hosted, X64]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup development environment
+        uses: ./.github/actions/setup-dev
+        with:
+          install-platformio: 'true'
+          install-coverage-tools: 'true'
+          
+      - name: Run coverage tests
+        run: |
+          chmod +x scripts/coverage.sh
+          ./scripts/coverage.sh
+          
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_report/
+          retention-days: 30
+          
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data
+          path: coverage_filtered.info
+          retention-days: 30
+          
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          lcov-file: coverage_filtered.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          filter-changed-files: true

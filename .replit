@@ -1,0 +1,75 @@
+modules = ["python-3.11"]
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Code Coverage"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "PlatformIO Tests"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "LitePB RPC Example"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "LitePB RPC Example Tests"
+
+[[workflows.workflow]]
+name = "Code Coverage"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./scripts/coverage.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "PlatformIO Tests"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pio test"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "LitePB RPC Example"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd examples/rpc/litepb_rpc && pio run -e litepb_rpc && .pio/build/litepb_rpc/program"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "LitePB RPC Example Tests"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pio test -e test_sensor_loopback -e test_sensor_service -e test_sensor_simulator -e test_sensor_integration"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[nix]
+channel = "stable-25_05"
+packages = ["protobuf", "clang-tools", "gdb", "valgrind", "cmake", "abseil-cpp", "pkg-config", "lcov", "gcc", "gcovr", "gh"]

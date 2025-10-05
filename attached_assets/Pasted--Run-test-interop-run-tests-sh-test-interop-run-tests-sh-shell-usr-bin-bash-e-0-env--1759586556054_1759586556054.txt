@@ -1,0 +1,65 @@
+
+Run ./test_interop/run_tests.sh
+  ./test_interop/run_tests.sh
+  shell: /usr/bin/bash -e {0}
+  env:
+    pythonLocation: /home/runner/actions-runner/_work/_tool/Python/3.10.18/x64
+    PKG_CONFIG_PATH: /home/runner/actions-runner/_work/_tool/Python/3.10.18/x64/lib/pkgconfig
+    Python_ROOT_DIR: /home/runner/actions-runner/_work/_tool/Python/3.10.18/x64
+    Python2_ROOT_DIR: /home/runner/actions-runner/_work/_tool/Python/3.10.18/x64
+    Python3_ROOT_DIR: /home/runner/actions-runner/_work/_tool/Python/3.10.18/x64
+    LD_LIBRARY_PATH: /home/runner/actions-runner/_work/_tool/Python/3.10.18/x64/lib
+Using Nix protobuf at: /usr
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Downloading CPM.cmake
+-- Using system Protobuf 3.21.12
+-- Using system Abseil
+-- Configuring done (2.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/runner/actions-runner/_work/litepb/litepb/test_interop/build
+[  7%] Generating LitePB C++ code from test_vectors.proto
+Parsing /home/runner/actions-runner/_work/litepb/litepb/test_interop/test_vectors.proto...
+Generating /home/runner/actions-runner/_work/litepb/litepb/test_interop/build/generated/test_vectors.pb.h
+Generating /home/runner/actions-runner/_work/litepb/litepb/test_interop/build/generated/test_vectors.pb.cpp
+Successfully generated files for /home/runner/actions-runner/_work/litepb/litepb/test_interop/test_vectors.proto
+Code generation complete!
+[ 15%] Generating protoc C++ code from test_vectors_protoc.proto
+[ 23%] Building CXX object CMakeFiles/interop_tests.dir/interop.cpp.o
+[ 30%] Building CXX object CMakeFiles/interop_tests.dir/protoc_helpers.cpp.o
+[ 38%] Building CXX object CMakeFiles/interop_tests.dir/test_runner.cpp.o
+[ 46%] Building CXX object CMakeFiles/interop_tests.dir/generated/test_vectors.pb.cpp.o
+[ 53%] Building CXX object CMakeFiles/interop_tests.dir/generated/protoc/test_vectors_protoc.pb.cc.o
+[ 61%] Building CXX object CMakeFiles/interop_tests.dir/home/runner/actions-runner/_work/litepb/litepb/src/litepb/core/proto_reader.cpp.o
+[ 69%] Building CXX object CMakeFiles/interop_tests.dir/home/runner/actions-runner/_work/litepb/litepb/src/litepb/core/proto_writer.cpp.o
+[ 76%] Building C object CMakeFiles/interop_tests.dir/_deps/unity-src/src/unity.c.o
+[ 84%] Linking CXX executable interop_tests
+[ 84%] Built target interop_tests
+[ 92%] Building C object _deps/unity-build/CMakeFiles/unity.dir/src/unity.c.o
+[100%] Linking C static library libunity.a
+[100%] Built target unity
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:17:test_basic_scalars:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:18:test_all_scalars:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:19:test_signed_ints:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:20:test_fixed_types:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:21:test_repeated_fields:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:276:test_map_field:FAIL: Element 12 Expected 8 Was 9
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:23:test_outer_nested:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:24:test_oneof_int:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:25:test_oneof_string:PASS
+/home/runner/actions-runner/_work/litepb/litepb/test_interop/test_runner.cpp:26:test_enum:PASS
+
+-----------------------
+10 Tests 1 Failures 0 Ignored 
+FAIL
+Error: Process completed with exit code 1.

@@ -1,0 +1,16 @@
+.replit
+.replit.nix
+replit.md
+.pythonlibs/
+.cache/
+.config/
+.upm/
+attached_assets/
+tmp/
+.breakpoints
+.replit_history
+.env
+scripts/dev/
+*.tar.gz
+uv.lock
+pyproject.toml
