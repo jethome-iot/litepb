@@ -12,11 +12,10 @@ struct RpcError
         PARSE_ERROR       = 2,
         TRANSPORT_ERROR   = 3,
         HANDLER_NOT_FOUND = 4,
-        CUSTOM_ERROR      = 100
+        UNKNOWN           = 5
     };
 
     Code code;
-    int32_t app_code = 0;
 
     bool ok() const { return code == OK; }
 };
@@ -34,8 +33,8 @@ inline const char* rpc_error_to_string(RpcError::Code code)
         return "Transport error";
     case RpcError::HANDLER_NOT_FOUND:
         return "Handler not found";
-    case RpcError::CUSTOM_ERROR:
-        return "Custom error";
+    case RpcError::UNKNOWN:
+        return "Unknown error";
     default:
         return "Unknown error";
     }

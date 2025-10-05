@@ -9,6 +9,7 @@
 #include "litepb/rpc/error.h"
 #include "litepb/rpc/framing.h"
 #include "litepb/rpc/transport.h"
+#include "../../proto/rpc_protocol.pb.h"
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -92,7 +93,7 @@ private:
         uint16_t msg_id;
         uint64_t dst_addr;
         uint32_t deadline_ms;
-        std::function<void(const std::vector<uint8_t>&, RpcError)> callback;
+        std::function<void(const rpc::RpcResponse&)> callback;
     };
 
     Transport& transport_;
@@ -112,7 +113,7 @@ private:
 
     void check_timeouts();
     void process_incoming_messages();
-    void handle_message(const FramedMessage& msg);
+    void handle_message(const TransportFrame& frame, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id);
 };
 
 template <typename Req, typename Resp>
@@ -121,84 +122,91 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
 {
     uint16_t msg_id = id_gen_.generate_for(local_address_, dst_addr);
 
-    BufferOutputStream payload_stream;
-
-    if (!litepb::serialize(request, payload_stream)) {
+    // Serialize request
+    BufferOutputStream request_stream;
+    if (!litepb::serialize(request, request_stream)) {
         Result<Resp> error_result;
         error_result.error.code = RpcError::PARSE_ERROR;
         callback(error_result);
         return false;
     }
 
-    FramedMessage framed_msg;
-    framed_msg.src_addr   = local_address_;
-    framed_msg.dst_addr   = dst_addr;
-    framed_msg.msg_id     = msg_id;
-    framed_msg.service_id = service_id;
-    framed_msg.method_id  = method_id;
-    framed_msg.payload.assign(payload_stream.data(), payload_stream.data() + payload_stream.size());
+    // Create RPC message
+    rpc::RpcMessage rpc_msg;
+    rpc_msg.version = 1;  // Protocol version 1
+    rpc_msg.service_id = service_id;
+    rpc_msg.method_id = method_id;
+    rpc_msg.message_type = rpc::RpcMessage::MessageType::REQUEST;
+    rpc_msg.payload = std::vector<uint8_t>(request_stream.data(), request_stream.data() + request_stream.size());
 
+    // Serialize RPC message
+    std::vector<uint8_t> rpc_payload;
+    if (!serialize_rpc_message(rpc_msg, rpc_payload)) {
+        Result<Resp> error_result;
+        error_result.error.code = RpcError::PARSE_ERROR;
+        callback(error_result);
+        return false;
+    }
+
+    // Create transport frame (only payload, addressing handled by transport)
+    TransportFrame frame;
+    frame.payload = rpc_payload;
+
+    // Encode and send
     BufferOutputStream out_stream;
-    if (!encode_message(framed_msg, out_stream, is_stream_transport_)) {
+    if (!encode_transport_frame(frame, out_stream, is_stream_transport_)) {
         Result<Resp> error_result;
         error_result.error.code = RpcError::TRANSPORT_ERROR;
         callback(error_result);
         return false;
     }
 
-    if (!transport_.send(out_stream.data(), out_stream.size())) {
+    if (!transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr, msg_id)) {
         Result<Resp> error_result;
         error_result.error.code = RpcError::TRANSPORT_ERROR;
         callback(error_result);
         return false;
     }
 
+    // Store pending call
     uint32_t actual_timeout = (timeout_ms == 0) ? default_timeout_ms_ : timeout_ms;
-
     uint64_t peer_addr = (dst_addr == RPC_ADDRESS_WILDCARD || dst_addr == RPC_ADDRESS_BROADCAST) ? RPC_ADDRESS_WILDCARD : dst_addr;
 
     pending_calls_[PendingKey{ peer_addr, service_id, msg_id }] =
         PendingCall{ msg_id, peer_addr, get_current_time_ms() + actual_timeout,
-                     [callback](const std::vector<uint8_t>& payload, RpcError error) {
-                         if (!error.ok()) {
-                             Result<Resp> result;
-                             result.error = error;
-                             callback(result);
-                             return;
-                         }
-
-                         BufferInputStream in_stream(payload.data(), payload.size());
-                         ProtoReader reader(in_stream);
-
-                         uint64_t error_code_u64, app_code_u64;
-                         if (!reader.read_varint(error_code_u64)) {
-                             Result<Resp> result;
-                             result.error.code = RpcError::PARSE_ERROR;
-                             callback(result);
-                             return;
-                         }
-                         if (!reader.read_varint(app_code_u64)) {
-                             Result<Resp> result;
-                             result.error.code = RpcError::PARSE_ERROR;
-                             callback(result);
-                             return;
-                         }
-
-                         RpcError::Code error_code = static_cast<RpcError::Code>(static_cast<uint32_t>(error_code_u64));
-                         int32_t app_code          = static_cast<int32_t>(static_cast<uint32_t>(app_code_u64));
-
-                         Resp response;
-                         if (!litepb::parse(response, in_stream)) {
-                             Result<Resp> result;
-                             result.error.code = RpcError::PARSE_ERROR;
-                             callback(result);
-                             return;
-                         }
-
+                     [callback](const rpc::RpcResponse& response) {
                          Result<Resp> result;
-                         result.value          = response;
-                         result.error.code     = error_code;
-                         result.error.app_code = app_code;
+                         
+                         // Convert RPC error code to our error code
+                         switch (response.error_code) {
+                             case rpc::RpcResponse::RpcErrorCode::OK:
+                                 result.error.code = RpcError::OK;
+                                 break;
+                             case rpc::RpcResponse::RpcErrorCode::TIMEOUT:
+                                 result.error.code = RpcError::TIMEOUT;
+                                 break;
+                             case rpc::RpcResponse::RpcErrorCode::PARSE_ERROR:
+                                 result.error.code = RpcError::PARSE_ERROR;
+                                 break;
+                             case rpc::RpcResponse::RpcErrorCode::TRANSPORT_ERROR:
+                                 result.error.code = RpcError::TRANSPORT_ERROR;
+                                 break;
+                             case rpc::RpcResponse::RpcErrorCode::HANDLER_NOT_FOUND:
+                                 result.error.code = RpcError::HANDLER_NOT_FOUND;
+                                 break;
+                             default:
+                                 result.error.code = RpcError::UNKNOWN;
+                                 break;
+                         }
+
+                         // Parse response if no error
+                         if (result.error.code == RpcError::OK && !response.response_data.empty()) {
+                             BufferInputStream resp_stream(response.response_data.data(), response.response_data.size());
+                             if (!litepb::parse(result.value, resp_stream)) {
+                                 result.error.code = RpcError::PARSE_ERROR;
+                             }
+                         }
+
                          callback(result);
                      } };
 
@@ -208,67 +216,130 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
 template <typename Req>
 bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req& request, uint64_t dst_addr)
 {
-    BufferOutputStream payload_stream;
+    // Events use msg_id = 0 (no response expected)
+    uint16_t msg_id = 0;
 
-    if (!litepb::serialize(request, payload_stream)) {
+    // Serialize request
+    BufferOutputStream request_stream;
+    if (!litepb::serialize(request, request_stream)) {
         return false;
     }
 
-    FramedMessage framed_msg;
-    framed_msg.src_addr   = local_address_;
-    framed_msg.dst_addr   = dst_addr;
-    framed_msg.msg_id     = 0;
-    framed_msg.service_id = service_id;
-    framed_msg.method_id  = method_id;
-    framed_msg.payload.assign(payload_stream.data(), payload_stream.data() + payload_stream.size());
+    // Create RPC message
+    rpc::RpcMessage rpc_msg;
+    rpc_msg.version = 1;  // Protocol version 1
+    rpc_msg.service_id = service_id;
+    rpc_msg.method_id = method_id;
+    rpc_msg.message_type = rpc::RpcMessage::MessageType::EVENT;
+    rpc_msg.payload = std::vector<uint8_t>(request_stream.data(), request_stream.data() + request_stream.size());
 
+    // Serialize RPC message
+    std::vector<uint8_t> rpc_payload;
+    if (!serialize_rpc_message(rpc_msg, rpc_payload)) {
+        return false;
+    }
+
+    // Create transport frame (only payload, addressing handled by transport)
+    TransportFrame frame;
+    frame.payload = rpc_payload;
+
+    // Encode and send
     BufferOutputStream out_stream;
-    if (!encode_message(framed_msg, out_stream, is_stream_transport_)) {
+    if (!encode_transport_frame(frame, out_stream, is_stream_transport_)) {
         return false;
     }
 
-    return transport_.send(out_stream.data(), out_stream.size());
+    return transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr, msg_id);
 }
 
 template <typename Req, typename Resp>
 void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(uint64_t, const Req&)> handler)
 {
-    handlers_[HandlerKey{ service_id, method_id }] = [this, service_id, method_id, handler](const std::vector<uint8_t>& payload,
-                                                                                            uint16_t msg_id, uint64_t src_addr) {
-        BufferInputStream in_stream(payload.data(), payload.size());
-
+    handlers_[HandlerKey{ service_id, method_id }] = [handler, this, service_id](const std::vector<uint8_t>& request_data, uint16_t msg_id, uint64_t src_addr) {
+        // Parse request
         Req request;
-        if (!litepb::parse(request, in_stream)) {
+        BufferInputStream req_stream(request_data.data(), request_data.size());
+        if (!litepb::parse(request, req_stream)) {
+            // Send error response
+            rpc::RpcResponse response;
+            response.error_code = rpc::RpcResponse::RpcErrorCode::PARSE_ERROR;
+            
+            rpc::RpcMessage rpc_msg;
+            rpc_msg.version = 1;
+            rpc_msg.service_id = service_id;
+            rpc_msg.method_id = 0;  // Method ID not relevant for response
+            rpc_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
+            rpc_msg.payload = response;
+
+            std::vector<uint8_t> rpc_payload;
+            if (serialize_rpc_message(rpc_msg, rpc_payload)) {
+                TransportFrame frame;
+                frame.payload = rpc_payload;
+
+                BufferOutputStream out_stream;
+                if (encode_transport_frame(frame, out_stream, is_stream_transport_)) {
+                    transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr, msg_id);
+                }
+            }
             return;
         }
 
+        // Call handler
         Result<Resp> result = handler(src_addr, request);
 
-        BufferOutputStream payload_stream;
-        ProtoWriter writer(payload_stream);
-
-        if (!writer.write_varint(static_cast<uint32_t>(result.error.code))) {
-            return;
+        // Create response
+        rpc::RpcResponse response;
+        
+        // Map our error codes to RPC error codes
+        switch (result.error.code) {
+            case RpcError::OK:
+                response.error_code = rpc::RpcResponse::RpcErrorCode::OK;
+                break;
+            case RpcError::TIMEOUT:
+                response.error_code = rpc::RpcResponse::RpcErrorCode::TIMEOUT;
+                break;
+            case RpcError::PARSE_ERROR:
+                response.error_code = rpc::RpcResponse::RpcErrorCode::PARSE_ERROR;
+                break;
+            case RpcError::TRANSPORT_ERROR:
+                response.error_code = rpc::RpcResponse::RpcErrorCode::TRANSPORT_ERROR;
+                break;
+            case RpcError::HANDLER_NOT_FOUND:
+                response.error_code = rpc::RpcResponse::RpcErrorCode::HANDLER_NOT_FOUND;
+                break;
+            default:
+                response.error_code = rpc::RpcResponse::RpcErrorCode::TRANSPORT_ERROR;
+                break;
         }
-        if (!writer.write_varint(static_cast<uint32_t>(result.error.app_code))) {
-            return;
+
+        // Serialize response value if successful
+        if (response.error_code == rpc::RpcResponse::RpcErrorCode::OK) {
+            BufferOutputStream resp_stream;
+            if (litepb::serialize(result.value, resp_stream)) {
+                response.response_data.assign(resp_stream.data(), resp_stream.data() + resp_stream.size());
+            } else {
+                response.error_code = rpc::RpcResponse::RpcErrorCode::PARSE_ERROR;
+            }
         }
 
-        if (!litepb::serialize(result.value, payload_stream)) {
-            return;
-        }
+        // Create RPC message
+        rpc::RpcMessage rpc_msg;
+        rpc_msg.version = 1;
+        rpc_msg.service_id = service_id;
+        rpc_msg.method_id = 0;  // Method ID not relevant for response
+        rpc_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
+        rpc_msg.payload = response;
 
-        FramedMessage response_msg;
-        response_msg.src_addr   = local_address_;
-        response_msg.dst_addr   = src_addr;
-        response_msg.msg_id     = msg_id;
-        response_msg.service_id = service_id;
-        response_msg.method_id  = method_id;
-        response_msg.payload.assign(payload_stream.data(), payload_stream.data() + payload_stream.size());
+        // Serialize and send
+        std::vector<uint8_t> rpc_payload;
+        if (serialize_rpc_message(rpc_msg, rpc_payload)) {
+            TransportFrame frame;
+            frame.payload = rpc_payload;
 
-        BufferOutputStream out_stream;
-        if (encode_message(response_msg, out_stream, is_stream_transport_)) {
-            transport_.send(out_stream.data(), out_stream.size());
+            BufferOutputStream out_stream;
+            if (encode_transport_frame(frame, out_stream, is_stream_transport_)) {
+                transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr, msg_id);
+            }
         }
     };
 }
@@ -276,16 +347,14 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
 template <typename Req>
 void RpcChannel::on_event(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req&)> handler)
 {
-    handlers_[HandlerKey{ service_id, method_id }] = [handler](const std::vector<uint8_t>& payload, uint16_t msg_id,
-                                                               uint64_t src_addr) {
-        BufferInputStream in_stream(payload.data(), payload.size());
-
-        Req request;
-        if (!litepb::parse(request, in_stream)) {
-            return;
+    handlers_[HandlerKey{ service_id, method_id }] = [handler](const std::vector<uint8_t>& event_data, uint16_t msg_id, uint64_t src_addr) {
+        // Parse event
+        Req event;
+        BufferInputStream event_stream(event_data.data(), event_data.size());
+        if (litepb::parse(event, event_stream)) {
+            handler(src_addr, event);
         }
-
-        handler(src_addr, request);
+        // Events don't send responses
     };
 }
 

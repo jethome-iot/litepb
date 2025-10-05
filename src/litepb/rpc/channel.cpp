@@ -32,12 +32,11 @@ void RpcChannel::check_timeouts()
 
     for (auto it = pending_calls_.begin(); it != pending_calls_.end();) {
         if (now >= it->second.deadline_ms) {
-            RpcError timeout_error;
-            timeout_error.code = RpcError::TIMEOUT;
+            // Create timeout response
+            rpc::RpcResponse timeout_response;
+            timeout_response.error_code = rpc::RpcResponse::RpcErrorCode::TIMEOUT;
 
-            std::vector<uint8_t> empty_payload;
-            it->second.callback(empty_payload, timeout_error);
-
+            it->second.callback(timeout_response);
             it = pending_calls_.erase(it);
         }
         else {
@@ -61,17 +60,20 @@ void RpcChannel::process_incoming_messages()
             rx_buffer_.resize(new_size);
         }
 
-        size_t received = transport_.recv(rx_buffer_.data() + rx_pos_, rx_buffer_.size() - rx_pos_);
+        uint64_t src_addr, dst_addr;
+        uint16_t msg_id;
+        
+        size_t received = transport_.recv(rx_buffer_.data() + rx_pos_, rx_buffer_.size() - rx_pos_, src_addr, dst_addr, msg_id);
         if (received == 0) {
             break;
         }
         rx_pos_ += received;
 
         BufferInputStream input(rx_buffer_.data(), rx_pos_);
-        FramedMessage msg;
+        TransportFrame frame;
 
-        if (decode_message(input, msg, is_stream_transport_)) {
-            handle_message(msg);
+        if (decode_transport_frame(input, frame, is_stream_transport_)) {
+            handle_message(frame, src_addr, dst_addr, msg_id);
 
             size_t consumed = input.position();
             if (consumed > 0 && consumed <= rx_pos_) {
@@ -85,55 +87,105 @@ void RpcChannel::process_incoming_messages()
     }
 }
 
-void RpcChannel::handle_message(const FramedMessage& msg)
+void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id)
 {
-    if (msg.dst_addr != RPC_ADDRESS_WILDCARD && msg.dst_addr != local_address_ && msg.dst_addr != RPC_ADDRESS_BROADCAST) {
+    // Check if message is for us
+    if (dst_addr != RPC_ADDRESS_WILDCARD && dst_addr != local_address_ && dst_addr != RPC_ADDRESS_BROADCAST) {
         return;
     }
 
-    if (msg.msg_id == 0) {
-        // Event: no response expected
-        auto handler_it = handlers_.find(HandlerKey{ msg.service_id, msg.method_id });
-
-        if (handler_it != handlers_.end()) {
-            handler_it->second(msg.payload, msg.msg_id, msg.src_addr);
-        }
+    // Deserialize RPC message
+    rpc::RpcMessage rpc_msg;
+    if (!deserialize_rpc_message(frame.payload, rpc_msg)) {
+        return;
     }
-    else {
-        // Normal RPC or response
-        auto pending_it        = pending_calls_.find(PendingKey{ msg.src_addr, msg.service_id, msg.msg_id });
-        bool is_valid_response = false;
 
-        if (pending_it != pending_calls_.end()) {
-            // Verify this is actually a response to our call
-            if (pending_it->second.dst_addr == msg.src_addr) {
-                is_valid_response = true;
-            }
-        }
+    // Check protocol version
+    if (rpc_msg.version != 1) {
+        // Unsupported protocol version
+        return;
+    }
 
-        if (!is_valid_response) {
-            // Try broadcast fallback
-            pending_it = pending_calls_.find(PendingKey{ RPC_ADDRESS_WILDCARD, msg.service_id, msg.msg_id });
-            if (pending_it != pending_calls_.end() && pending_it->second.dst_addr == RPC_ADDRESS_WILDCARD) {
-                is_valid_response = true;
-            }
-        }
-
-        if (is_valid_response) {
-            // Handle as response
-            RpcError ok_error;
-            ok_error.code = RpcError::OK;
-
-            pending_it->second.callback(msg.payload, ok_error);
-            pending_calls_.erase(pending_it);
-        }
-        else {
-            // Handle as request
-            auto handler_it = handlers_.find(HandlerKey{ msg.service_id, msg.method_id });
-
+    // Handle based on message type
+    switch (rpc_msg.message_type) {
+        case rpc::RpcMessage::MessageType::REQUEST: {
+            // This is a request, find handler
+            auto handler_it = handlers_.find(HandlerKey{ static_cast<uint16_t>(rpc_msg.service_id), rpc_msg.method_id });
             if (handler_it != handlers_.end()) {
-                handler_it->second(msg.payload, msg.msg_id, msg.src_addr);
+                // Extract request data
+                if (std::holds_alternative<std::vector<uint8_t>>(rpc_msg.payload)) {
+                    const auto& request_data = std::get<std::vector<uint8_t>>(rpc_msg.payload);
+                    handler_it->second(request_data, msg_id, src_addr);
+                }
+            } else {
+                // No handler found, send error response
+                rpc::RpcResponse response;
+                response.error_code = rpc::RpcResponse::RpcErrorCode::HANDLER_NOT_FOUND;
+                
+                rpc::RpcMessage response_msg;
+                response_msg.version = 1;
+                response_msg.service_id = rpc_msg.service_id;
+                response_msg.method_id = 0;
+                response_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
+                response_msg.payload = response;
+
+                std::vector<uint8_t> rpc_payload;
+                if (serialize_rpc_message(response_msg, rpc_payload)) {
+                    TransportFrame response_frame;
+                    response_frame.payload = rpc_payload;
+
+                    BufferOutputStream out_stream;
+                    if (encode_transport_frame(response_frame, out_stream, is_stream_transport_)) {
+                        transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr, msg_id);
+                    }
+                }
             }
+            break;
+        }
+
+        case rpc::RpcMessage::MessageType::RESPONSE: {
+            // This is a response, find pending call
+            auto pending_it = pending_calls_.find(PendingKey{ src_addr, static_cast<uint16_t>(rpc_msg.service_id), msg_id });
+            bool found = false;
+            
+            if (pending_it != pending_calls_.end()) {
+                // Verify this is actually a response to our call
+                if (pending_it->second.dst_addr == src_addr) {
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                // Try broadcast fallback
+                pending_it = pending_calls_.find(PendingKey{ RPC_ADDRESS_WILDCARD, static_cast<uint16_t>(rpc_msg.service_id), msg_id });
+                if (pending_it != pending_calls_.end() && pending_it->second.dst_addr == RPC_ADDRESS_WILDCARD) {
+                    found = true;
+                }
+            }
+
+            if (found) {
+                // Extract response
+                if (std::holds_alternative<rpc::RpcResponse>(rpc_msg.payload)) {
+                    const auto& response = std::get<rpc::RpcResponse>(rpc_msg.payload);
+                    pending_it->second.callback(response);
+                    pending_calls_.erase(pending_it);
+                }
+            }
+            break;
+        }
+
+        case rpc::RpcMessage::MessageType::EVENT: {
+            // This is an event, find handler
+            auto handler_it = handlers_.find(HandlerKey{ static_cast<uint16_t>(rpc_msg.service_id), rpc_msg.method_id });
+            if (handler_it != handlers_.end()) {
+                // Extract event data
+                if (std::holds_alternative<std::vector<uint8_t>>(rpc_msg.payload)) {
+                    const auto& event_data = std::get<std::vector<uint8_t>>(rpc_msg.payload);
+                    handler_it->second(event_data, 0, src_addr);  // msg_id = 0 for events
+                }
+            }
+            // Events don't send responses
+            break;
         }
     }
 }

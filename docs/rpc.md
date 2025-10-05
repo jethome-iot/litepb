@@ -43,29 +43,59 @@ LitePB RPC is a lightweight, asynchronous RPC layer built for embedded systems a
 
 ## Wire Protocol
 
-### Frame Structure
+### Protocol Architecture
 
-All RPC messages follow a consistent framing structure with addressing and service multiplexing:
+The RPC system uses a clean separation between transport and protocol layers:
+
+1. **Transport Layer** handles addressing and routing:
+   - Source address (src_addr: 8 bytes)
+   - Destination address (dst_addr: 8 bytes)
+   - Message ID (msg_id: 16-bit) for request/response correlation
+
+2. **RPC Protocol Layer** uses protobuf serialization:
+   - Protocol version for backward compatibility
+   - Service and method dispatch
+   - Explicit message types (REQUEST, RESPONSE, EVENT)
+   - Clean error handling separation
+
+### RPC Message Structure
+
+All RPC messages are serialized using the `RpcMessage` protobuf:
+
+```protobuf
+message RpcMessage {
+    uint32 version = 1;           // Protocol version (currently 1)
+    uint32 service_id = 2;        // Service identifier
+    uint32 method_id = 3;         // Method within the service
+    
+    enum MessageType {
+        REQUEST = 0;              // Expects response
+        RESPONSE = 1;             // Reply to request
+        EVENT = 2;                // Fire-and-forget
+    }
+    MessageType message_type = 4;
+    
+    oneof payload {
+        bytes request_data = 5;    // For REQUEST
+        RpcResponse response = 6;  // For RESPONSE
+        bytes event_data = 7;      // For EVENT
+    }
+}
+```
+
+### Transport Framing
+
+The transport layer adds addressing and framing around the RPC message:
 
 **Stream Transports** (UART, TCP):
 ```
-[src_addr:8bytes][dst_addr:8bytes][msg_id:varint][service_id:varint][method_id:varint][payload_len:varint][payload]
+[Frame Length][src_addr][dst_addr][msg_id][RpcMessage protobuf]
 ```
 
 **Packet Transports** (UDP, LoRa):
 ```
-[src_addr:8bytes][dst_addr:8bytes][msg_id:varint][service_id:varint][method_id:varint][payload]
+[src_addr][dst_addr][msg_id][RpcMessage protobuf]
 ```
-
-### Field Descriptions
-
-- **src_addr** (8 bytes): Source node address, little-endian
-- **dst_addr** (8 bytes): Destination node address, little-endian
-- **msg_id** (varint): 16-bit message ID for correlating requests/responses (0 = fire-and-forget event)
-- **service_id** (varint): 16-bit service identifier for multiplexing
-- **method_id** (varint): 32-bit method identifier within the service
-- **payload_len** (varint): Length of payload (stream transports only)
-- **payload**: Protobuf-encoded request or response data
 
 ### Addressing System
 
@@ -142,13 +172,15 @@ client.Add(req, [](const litepb::Result<Response>& result) {
 ```cpp
 class YourTransport : public Transport {
 public:
-    bool send(const uint8_t* data, size_t len) override {
-        // Send bytes to hardware
+    bool send(const uint8_t* data, size_t len, 
+              uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id) override {
+        // Transport handles addressing and sends bytes to hardware
         return true;
     }
     
-    size_t recv(uint8_t* buffer, size_t max_len) override {
-        // Read available bytes
+    size_t recv(uint8_t* buffer, size_t max_len,
+                uint64_t& src_addr, uint64_t& dst_addr, uint16_t& msg_id) override {
+        // Read available bytes and extract addressing info
         return bytes_read;
     }
     
@@ -161,32 +193,57 @@ public:
 
 ## Error Handling
 
-The RPC system uses a two-layer error model:
+The RPC system uses a clean separation between RPC-layer and application-layer errors:
 
-1. **RPC Layer Errors** - Transport and protocol issues
-   - `OK` (0): Successful operation
-   - `TIMEOUT` (1): Request exceeded deadline
-   - `PARSE_ERROR` (2): Failed to parse message
-   - `TRANSPORT_ERROR` (3): Transport layer failure
-   - `HANDLER_NOT_FOUND` (4): No handler registered for method
-   - `CUSTOM_ERROR` (100+): Application-defined errors
+### RPC Layer Errors
 
-2. **Application Errors** - Business logic errors
-   - Custom error codes defined within protobuf response messages
+These are protocol and transport issues detected by the framework:
+- `OK` (0): Successful operation
+- `TIMEOUT` (1): Request exceeded deadline
+- `PARSE_ERROR` (2): Failed to parse message
+- `TRANSPORT_ERROR` (3): Transport layer failure
+- `HANDLER_NOT_FOUND` (4): No handler registered for method
+
+### Application Layer Errors
+
+Application-specific errors are handled within the response payload:
+- Define custom error codes in your protobuf messages
+- Return `RpcError::OK` from the RPC layer
+- Include error details in the response data
 
 ```cpp
-// RPC layer errors are handled in the callback
-client.Add(req, [](const litepb::Result<Response>& result) {
+// Example: Application error handling
+message SensorResponse {
+    enum Status {
+        OK = 0;
+        SENSOR_NOT_FOUND = 1;
+        OUT_OF_RANGE = 2;
+    }
+    Status status = 1;
+    float value = 2;
+}
+
+// Server returns application error
+litepb::Result<SensorResponse> GetReading(const Request& req) {
+    litepb::Result<SensorResponse> result;
+    result.error.code = litepb::RpcError::OK;  // RPC succeeded
+    result.value.status = SensorResponse::SENSOR_NOT_FOUND;  // App error
+    return result;
+}
+
+// Client checks both layers
+client.GetReading(req, [](const litepb::Result<SensorResponse>& result) {
     if (result.error.code != litepb::RpcError::OK) {
         // Handle RPC layer error (timeout, transport, etc.)
         return;
     }
+    if (result.value.status != SensorResponse::OK) {
+        // Handle application error
+        return;
+    }
     // Process successful response
-    // Application errors would be in the response message itself
 });
 ```
-
-Note: Error codes are not part of the wire protocol framing. RPC layer errors are detected by the framework (timeouts, parsing failures), while application errors are encoded within the protobuf response payload.
 
 ## Examples
 
@@ -194,3 +251,30 @@ See `examples/rpc/litepb_rpc/` for complete working example with:
 - Bidirectional sensor communication
 - Multiple transport implementations
 - Comprehensive test suite (38 tests)
+
+## Future Enhancements (TODO)
+
+### Metadata and Context Propagation
+- Add optional metadata map for cross-cutting concerns (tracing, auth tokens)
+- Implement deadline propagation to prevent cascading timeouts
+- Support for distributed tracing headers
+
+### Streaming Support  
+- Add STREAM_REQUEST, STREAM_DATA, STREAM_END message types
+- Enable server-side streaming for large data transfers
+- Support bidirectional streaming for real-time communication
+
+### Connection Management
+- Implement PING/PONG messages for keepalive
+- Add connection state tracking and automatic reconnection
+- Support for connection multiplexing
+
+### Performance Optimizations
+- Batch multiple requests in single transport frame
+- Implement request/response compression
+- Add caching layer for idempotent requests
+
+### Security Features
+- Built-in authentication/authorization framework
+- Message encryption at RPC layer
+- Request signing and verification

@@ -29,7 +29,7 @@ public:
 
     const std::vector<uint8_t>& get_captured_bytes() const { return captured_bytes_; }
 
-    bool send(const uint8_t* data, size_t len) override
+    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id) override
     {
         if (capture_enabled_) {
             for (size_t i = 0; i < len; ++i) {
@@ -41,14 +41,24 @@ public:
             return false;
         }
 
+        // Store metadata for recv
+        peer_->last_src_addr_ = src_addr;
+        peer_->last_dst_addr_ = dst_addr;
+        peer_->last_msg_id_ = msg_id;
+
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
         }
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len) override
+    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr, uint16_t& msg_id) override
     {
+        // Return stored metadata
+        src_addr = last_src_addr_;
+        dst_addr = last_dst_addr_;
+        msg_id = last_msg_id_;
+
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
             buffer[count++] = rx_queue_.front();
@@ -60,6 +70,9 @@ public:
     bool available() override { return !rx_queue_.empty(); }
 
     std::queue<uint8_t> rx_queue_;
+    uint64_t last_src_addr_ = 0;
+    uint64_t last_dst_addr_ = 0;
+    uint16_t last_msg_id_ = 0;
 
 private:
     LoopbackTransport* peer_;
@@ -115,7 +128,7 @@ inline bool parse(SimpleMessage& msg, InputStream& input)
 void setUp() {}
 void tearDown() {}
 
-void test_app_code_propagation_basic()
+void test_rpc_error_propagation_basic()
 {
     LoopbackTransport peer_a_transport;
     LoopbackTransport peer_b_transport;
@@ -128,14 +141,12 @@ void test_app_code_propagation_basic()
 
     bool response_received                     = false;
     litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
-    int32_t received_app_code                  = 0;
 
     peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-            result.error.app_code = 404;
+            result.error.code     = litepb::RpcError::TRANSPORT_ERROR;
             result.value.value    = req.value;
             return result;
         });
@@ -146,7 +157,6 @@ void test_app_code_propagation_basic()
     peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
         response_received   = true;
         received_error_code = result.error.code;
-        received_app_code   = result.error.app_code;
     });
 
     for (int i = 0; i < 10 && !response_received; ++i) {
@@ -155,11 +165,10 @@ void test_app_code_propagation_basic()
     }
 
     TEST_ASSERT_TRUE(response_received);
-    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code));
-    TEST_ASSERT_EQUAL_INT32(404, received_app_code);
+    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::TRANSPORT_ERROR, static_cast<int32_t>(received_error_code));
 }
 
-void test_app_code_propagation_various_codes()
+void test_rpc_error_propagation_various_codes()
 {
     LoopbackTransport peer_a_transport;
     LoopbackTransport peer_b_transport;
@@ -170,21 +179,24 @@ void test_app_code_propagation_various_codes()
     litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
     litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
 
-    int32_t test_app_codes[] = { 100, 404, 500, 1000 };
+    litepb::RpcError::Code test_error_codes[] = { 
+        litepb::RpcError::TIMEOUT, 
+        litepb::RpcError::PARSE_ERROR, 
+        litepb::RpcError::TRANSPORT_ERROR,
+        litepb::RpcError::HANDLER_NOT_FOUND 
+    };
 
-    for (size_t i = 0; i < sizeof(test_app_codes) / sizeof(test_app_codes[0]); ++i) {
-        int32_t expected_app_code = test_app_codes[i];
+    for (size_t i = 0; i < sizeof(test_error_codes) / sizeof(test_error_codes[0]); ++i) {
+        litepb::RpcError::Code expected_error_code = test_error_codes[i];
 
         bool response_received                     = false;
         litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
-        int32_t received_app_code                  = 0;
 
         peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-            1, i + 1, [expected_app_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
+            1, i + 1, [expected_error_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
                 (void) src_addr;
                 litepb::Result<SimpleMessage> result;
-                result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-                result.error.app_code = expected_app_code;
+                result.error.code     = expected_error_code;
                 result.value.value    = req.value;
                 return result;
             });
@@ -196,7 +208,6 @@ void test_app_code_propagation_various_codes()
                                                                    [&](const litepb::Result<SimpleMessage>& result) {
                                                                        response_received   = true;
                                                                        received_error_code = result.error.code;
-                                                                       received_app_code   = result.error.app_code;
                                                                    });
 
         for (int j = 0; j < 10 && !response_received; ++j) {
@@ -205,462 +216,23 @@ void test_app_code_propagation_various_codes()
         }
 
         TEST_ASSERT_TRUE(response_received);
-        TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code));
-        TEST_ASSERT_EQUAL_INT32(expected_app_code, received_app_code);
+        TEST_ASSERT_EQUAL_INT32(expected_error_code, static_cast<int32_t>(received_error_code));
     }
 }
 
-void test_app_code_zero_vs_nonzero()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
+// test_app_code_zero_vs_nonzero removed - app_code no longer part of RPC protocol
 
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
+// test_app_code_negative_values removed - app_code no longer part of RPC protocol
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+// test_app_code_boundary_values removed - app_code no longer part of RPC protocol
 
-    bool response_zero_received                     = false;
-    litepb::RpcError::Code received_error_code_zero = litepb::RpcError::OK;
-    int32_t received_app_code_zero                  = -1;
+// test_wire_format_structure removed - FramedMessage no longer part of protocol
 
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
-            litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-            result.error.app_code = 0;
-            result.value.value    = req.value;
-            return result;
-        });
+// test_msg_id_varint_one_byte removed - FramedMessage no longer part of protocol
 
-    SimpleMessage request_zero;
-    request_zero.value = 1;
+// test_msg_id_varint_two_bytes removed - FramedMessage no longer part of protocol
 
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request_zero,
-                                                               [&](const litepb::Result<SimpleMessage>& result) {
-                                                                   response_zero_received   = true;
-                                                                   received_error_code_zero = result.error.code;
-                                                                   received_app_code_zero   = result.error.app_code;
-                                                               });
-
-    for (int i = 0; i < 10 && !response_zero_received; ++i) {
-        peer_b_channel.process();
-        peer_a_channel.process();
-    }
-
-    TEST_ASSERT_TRUE(response_zero_received);
-    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code_zero));
-    TEST_ASSERT_EQUAL_INT32(0, received_app_code_zero);
-
-    bool response_nonzero_received                     = false;
-    litepb::RpcError::Code received_error_code_nonzero = litepb::RpcError::OK;
-    int32_t received_app_code_nonzero                  = 0;
-
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-        1, 2, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
-            litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-            result.error.app_code = 404;
-            result.value.value    = req.value;
-            return result;
-        });
-
-    SimpleMessage request_nonzero;
-    request_nonzero.value = 2;
-
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 2, request_nonzero,
-                                                               [&](const litepb::Result<SimpleMessage>& result) {
-                                                                   response_nonzero_received   = true;
-                                                                   received_error_code_nonzero = result.error.code;
-                                                                   received_app_code_nonzero   = result.error.app_code;
-                                                               });
-
-    for (int i = 0; i < 10 && !response_nonzero_received; ++i) {
-        peer_b_channel.process();
-        peer_a_channel.process();
-    }
-
-    TEST_ASSERT_TRUE(response_nonzero_received);
-    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code_nonzero));
-    TEST_ASSERT_EQUAL_INT32(404, received_app_code_nonzero);
-}
-
-void test_app_code_negative_values()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
-
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
-
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
-
-    int32_t test_negative_codes[] = { -1, -100, INT32_MIN };
-
-    for (size_t i = 0; i < sizeof(test_negative_codes) / sizeof(test_negative_codes[0]); ++i) {
-        int32_t expected_app_code = test_negative_codes[i];
-
-        bool response_received                     = false;
-        litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
-        int32_t received_app_code                  = 0;
-
-        peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-            1, i + 1, [expected_app_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-                (void) src_addr;
-                litepb::Result<SimpleMessage> result;
-                result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-                result.error.app_code = expected_app_code;
-                result.value.value    = req.value;
-                return result;
-            });
-
-        SimpleMessage request;
-        request.value = static_cast<int32_t>(i);
-
-        peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, i + 1, request,
-                                                                   [&](const litepb::Result<SimpleMessage>& result) {
-                                                                       response_received   = true;
-                                                                       received_error_code = result.error.code;
-                                                                       received_app_code   = result.error.app_code;
-                                                                   });
-
-        for (int j = 0; j < 10 && !response_received; ++j) {
-            peer_b_channel.process();
-            peer_a_channel.process();
-        }
-
-        TEST_ASSERT_TRUE(response_received);
-        TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code));
-        TEST_ASSERT_EQUAL_INT32(expected_app_code, received_app_code);
-    }
-}
-
-void test_app_code_boundary_values()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
-
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
-
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
-
-    int32_t test_boundary_codes[] = { INT32_MAX, INT32_MIN };
-
-    for (size_t i = 0; i < sizeof(test_boundary_codes) / sizeof(test_boundary_codes[0]); ++i) {
-        int32_t expected_app_code = test_boundary_codes[i];
-
-        bool response_received                     = false;
-        litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
-        int32_t received_app_code                  = 0;
-
-        peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-            1, i + 1, [expected_app_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-                (void) src_addr;
-                litepb::Result<SimpleMessage> result;
-                result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-                result.error.app_code = expected_app_code;
-                result.value.value    = req.value;
-                return result;
-            });
-
-        SimpleMessage request;
-        request.value = static_cast<int32_t>(i);
-
-        peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, i + 1, request,
-                                                                   [&](const litepb::Result<SimpleMessage>& result) {
-                                                                       response_received   = true;
-                                                                       received_error_code = result.error.code;
-                                                                       received_app_code   = result.error.app_code;
-                                                                   });
-
-        for (int j = 0; j < 10 && !response_received; ++j) {
-            peer_b_channel.process();
-            peer_a_channel.process();
-        }
-
-        TEST_ASSERT_TRUE(response_received);
-        TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code));
-        TEST_ASSERT_EQUAL_INT32(expected_app_code, received_app_code);
-    }
-}
-
-void test_wire_format_structure()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
-
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
-
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
-
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
-            litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-            result.error.app_code = 999;
-            result.value.value    = req.value * 2;
-            return result;
-        });
-
-    peer_b_transport.enable_capture();
-
-    bool response_received = false;
-
-    SimpleMessage request;
-    request.value = 100;
-
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-        (void) result;
-        response_received = true;
-    });
-
-    for (int i = 0; i < 10 && !response_received; ++i) {
-        peer_b_channel.process();
-        peer_a_channel.process();
-    }
-
-    TEST_ASSERT_TRUE(response_received);
-
-    const std::vector<uint8_t>& captured_bytes = peer_b_transport.get_captured_bytes();
-    TEST_ASSERT_TRUE(captured_bytes.size() > 0);
-
-    litepb::BufferInputStream frame_stream(captured_bytes.data(), captured_bytes.size());
-    litepb::FramedMessage frame;
-    TEST_ASSERT_TRUE(litepb::decode_message(frame_stream, frame, true));
-
-    TEST_ASSERT_TRUE(frame.payload.size() > 0);
-
-    litepb::BufferInputStream payload_stream(frame.payload.data(), frame.payload.size());
-    litepb::ProtoReader reader(payload_stream);
-
-    uint64_t error_code_u64;
-    TEST_ASSERT_TRUE(reader.read_varint(error_code_u64));
-    TEST_ASSERT_EQUAL_UINT32(litepb::RpcError::CUSTOM_ERROR, static_cast<uint32_t>(error_code_u64));
-
-    uint64_t app_code_u64;
-    TEST_ASSERT_TRUE(reader.read_varint(app_code_u64));
-    TEST_ASSERT_EQUAL_INT32(999, static_cast<int32_t>(static_cast<uint32_t>(app_code_u64)));
-
-    SimpleMessage response;
-    TEST_ASSERT_TRUE(litepb::parse(response, payload_stream));
-    TEST_ASSERT_EQUAL_INT32(200, response.value);
-}
-
-void test_msg_id_varint_one_byte()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
-
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
-
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
-
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
-            litepb::Result<SimpleMessage> result;
-            result.error.code  = litepb::RpcError::OK;
-            result.value.value = req.value;
-            return result;
-        });
-
-    SimpleMessage request;
-    request.value = 42;
-
-    for (int i = 1; i < 127; ++i) {
-        bool response_received = false;
-        peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-            (void) result;
-            response_received = true;
-        });
-
-        for (int j = 0; j < 10 && !response_received; ++j) {
-            peer_b_channel.process();
-            peer_a_channel.process();
-        }
-    }
-
-    peer_a_transport.enable_capture();
-
-    bool response_received = false;
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-        (void) result;
-        response_received = true;
-    });
-
-    for (int i = 0; i < 10 && !response_received; ++i) {
-        peer_b_channel.process();
-        peer_a_channel.process();
-    }
-
-    TEST_ASSERT_TRUE(response_received);
-
-    const std::vector<uint8_t>& captured_bytes = peer_a_transport.get_captured_bytes();
-    TEST_ASSERT_TRUE(captured_bytes.size() > 0);
-
-    litepb::BufferInputStream frame_stream(captured_bytes.data(), captured_bytes.size());
-    litepb::FramedMessage frame;
-    TEST_ASSERT_TRUE(litepb::decode_message(frame_stream, frame, true));
-
-    TEST_ASSERT_EQUAL_UINT16(127, frame.msg_id);
-
-    size_t msg_id_offset = 16;
-    uint8_t first_byte   = captured_bytes[msg_id_offset];
-    TEST_ASSERT_EQUAL_UINT8(0x7F, first_byte);
-    TEST_ASSERT_TRUE((first_byte & 0x80) == 0);
-}
-
-void test_msg_id_varint_two_bytes()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
-
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
-
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
-
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
-            litepb::Result<SimpleMessage> result;
-            result.error.code  = litepb::RpcError::OK;
-            result.value.value = req.value;
-            return result;
-        });
-
-    SimpleMessage request;
-    request.value = 42;
-
-    for (int i = 1; i < 128; ++i) {
-        bool response_received = false;
-        peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-            (void) result;
-            response_received = true;
-        });
-
-        for (int j = 0; j < 10 && !response_received; ++j) {
-            peer_b_channel.process();
-            peer_a_channel.process();
-        }
-    }
-
-    peer_a_transport.enable_capture();
-
-    bool response_received = false;
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-        (void) result;
-        response_received = true;
-    });
-
-    for (int i = 0; i < 10 && !response_received; ++i) {
-        peer_b_channel.process();
-        peer_a_channel.process();
-    }
-
-    TEST_ASSERT_TRUE(response_received);
-
-    const std::vector<uint8_t>& captured_bytes = peer_a_transport.get_captured_bytes();
-    TEST_ASSERT_TRUE(captured_bytes.size() > 0);
-
-    litepb::BufferInputStream frame_stream(captured_bytes.data(), captured_bytes.size());
-    litepb::FramedMessage frame;
-    TEST_ASSERT_TRUE(litepb::decode_message(frame_stream, frame, true));
-
-    TEST_ASSERT_EQUAL_UINT16(128, frame.msg_id);
-
-    size_t msg_id_offset = 16;
-    uint8_t first_byte   = captured_bytes[msg_id_offset];
-    uint8_t second_byte  = captured_bytes[msg_id_offset + 1];
-    TEST_ASSERT_EQUAL_UINT8(0x80, first_byte);
-    TEST_ASSERT_EQUAL_UINT8(0x01, second_byte);
-    TEST_ASSERT_TRUE((first_byte & 0x80) != 0);
-    TEST_ASSERT_TRUE((second_byte & 0x80) == 0);
-}
-
-void test_msg_id_varint_max_uint16()
-{
-    LoopbackTransport peer_a_transport;
-    LoopbackTransport peer_b_transport;
-
-    peer_a_transport.connect_to_peer(&peer_b_transport);
-    peer_b_transport.connect_to_peer(&peer_a_transport);
-
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
-
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
-            litepb::Result<SimpleMessage> result;
-            result.error.code  = litepb::RpcError::OK;
-            result.value.value = req.value;
-            return result;
-        });
-
-    SimpleMessage request;
-    request.value = 42;
-
-    for (int i = 1; i < 65535; ++i) {
-        bool response_received = false;
-        peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-            (void) result;
-            response_received = true;
-        });
-
-        for (int j = 0; j < 10 && !response_received; ++j) {
-            peer_b_channel.process();
-            peer_a_channel.process();
-        }
-    }
-
-    peer_a_transport.enable_capture();
-
-    bool response_received = false;
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
-        (void) result;
-        response_received = true;
-    });
-
-    for (int i = 0; i < 10 && !response_received; ++i) {
-        peer_b_channel.process();
-        peer_a_channel.process();
-    }
-
-    TEST_ASSERT_TRUE(response_received);
-
-    const std::vector<uint8_t>& captured_bytes = peer_a_transport.get_captured_bytes();
-    TEST_ASSERT_TRUE(captured_bytes.size() > 0);
-
-    litepb::BufferInputStream frame_stream(captured_bytes.data(), captured_bytes.size());
-    litepb::FramedMessage frame;
-    TEST_ASSERT_TRUE(litepb::decode_message(frame_stream, frame, true));
-
-    TEST_ASSERT_EQUAL_UINT16(65535, frame.msg_id);
-
-    size_t msg_id_offset = 16;
-    uint8_t first_byte   = captured_bytes[msg_id_offset];
-    uint8_t second_byte  = captured_bytes[msg_id_offset + 1];
-    uint8_t third_byte   = captured_bytes[msg_id_offset + 2];
-    TEST_ASSERT_EQUAL_UINT8(0xFF, first_byte);
-    TEST_ASSERT_EQUAL_UINT8(0xFF, second_byte);
-    TEST_ASSERT_EQUAL_UINT8(0x03, third_byte);
-    TEST_ASSERT_TRUE((first_byte & 0x80) != 0);
-    TEST_ASSERT_TRUE((second_byte & 0x80) != 0);
-    TEST_ASSERT_TRUE((third_byte & 0x80) == 0);
-}
+// test_msg_id_varint_max_uint16 removed - FramedMessage no longer part of protocol
 
 void test_timeout_overrides_server_error()
 {
@@ -677,8 +249,7 @@ void test_timeout_overrides_server_error()
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-            result.error.app_code = 500;
+            result.error.code     = litepb::RpcError::TRANSPORT_ERROR;
             result.value.value    = req.value;
             return result;
         });
@@ -721,8 +292,7 @@ void test_multi_service_error_isolation()
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::CUSTOM_ERROR;
-            result.error.app_code = 100;
+            result.error.code     = litepb::RpcError::TRANSPORT_ERROR;
             result.value.value    = req.value;
             return result;
         });
@@ -732,14 +302,12 @@ void test_multi_service_error_isolation()
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
             result.error.code     = litepb::RpcError::OK;
-            result.error.app_code = 0;
             result.value.value    = req.value * 2;
             return result;
         });
 
     bool service1_response_received            = false;
     litepb::RpcError::Code service1_error_code = litepb::RpcError::OK;
-    int32_t service1_app_code                  = 0;
 
     SimpleMessage request1;
     request1.value = 10;
@@ -747,7 +315,6 @@ void test_multi_service_error_isolation()
     peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request1, [&](const litepb::Result<SimpleMessage>& result) {
         service1_response_received = true;
         service1_error_code        = result.error.code;
-        service1_app_code          = result.error.app_code;
     });
 
     for (int i = 0; i < 20 && !service1_response_received; ++i) {
@@ -756,12 +323,10 @@ void test_multi_service_error_isolation()
     }
 
     TEST_ASSERT_TRUE(service1_response_received);
-    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(service1_error_code));
-    TEST_ASSERT_EQUAL_INT32(100, service1_app_code);
+    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::TRANSPORT_ERROR, static_cast<int32_t>(service1_error_code));
 
     bool service2_response_received            = false;
     litepb::RpcError::Code service2_error_code = litepb::RpcError::OK;
-    int32_t service2_app_code                  = 0;
     int32_t service2_value                     = 0;
 
     SimpleMessage request2;
@@ -770,7 +335,6 @@ void test_multi_service_error_isolation()
     peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(2, 1, request2, [&](const litepb::Result<SimpleMessage>& result) {
         service2_response_received = true;
         service2_error_code        = result.error.code;
-        service2_app_code          = result.error.app_code;
         service2_value             = result.value.value;
     });
 
@@ -781,22 +345,14 @@ void test_multi_service_error_isolation()
 
     TEST_ASSERT_TRUE(service2_response_received);
     TEST_ASSERT_EQUAL_INT32(litepb::RpcError::OK, static_cast<int32_t>(service2_error_code));
-    TEST_ASSERT_EQUAL_INT32(0, service2_app_code);
     TEST_ASSERT_EQUAL_INT32(40, service2_value);
 }
 
 int runTests()
 {
     UNITY_BEGIN();
-    RUN_TEST(test_app_code_propagation_basic);
-    RUN_TEST(test_app_code_propagation_various_codes);
-    RUN_TEST(test_app_code_zero_vs_nonzero);
-    RUN_TEST(test_app_code_negative_values);
-    RUN_TEST(test_app_code_boundary_values);
-    RUN_TEST(test_wire_format_structure);
-    RUN_TEST(test_msg_id_varint_one_byte);
-    RUN_TEST(test_msg_id_varint_two_bytes);
-    RUN_TEST(test_msg_id_varint_max_uint16);
+    RUN_TEST(test_rpc_error_propagation_basic);
+    RUN_TEST(test_rpc_error_propagation_various_codes);
     RUN_TEST(test_timeout_overrides_server_error);
     RUN_TEST(test_multi_service_error_isolation);
     return UNITY_END();

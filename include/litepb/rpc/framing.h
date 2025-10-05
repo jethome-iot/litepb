@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "../../proto/rpc_protocol.pb.h"
 
 namespace litepb {
 
@@ -22,23 +23,21 @@ private:
     uint16_t counter_;
 };
 
-size_t encode_varint(uint32_t value, uint8_t* buffer);
-
-size_t decode_varint(const uint8_t* buffer, size_t max_len, uint32_t& out_value);
-
-struct FramedMessage
+// Transport frame containing only the RpcMessage payload
+// Addressing is handled entirely by the transport layer
+struct TransportFrame
 {
-    uint64_t src_addr;
-    uint64_t dst_addr;
-    uint16_t msg_id;
-    uint16_t service_id;
-    uint32_t method_id;
-    std::vector<uint8_t> payload;
+    std::vector<uint8_t> payload;  // Serialized RpcMessage only
 };
 
-bool encode_message(const FramedMessage& msg, OutputStream& output, bool is_stream_transport);
+bool encode_transport_frame(const TransportFrame& frame, OutputStream& output, bool is_stream_transport);
 
-bool decode_message(InputStream& input, FramedMessage& msg, bool is_stream_transport);
+bool decode_transport_frame(InputStream& input, TransportFrame& frame, bool is_stream_transport);
+
+// Helper functions for RpcMessage manipulation
+bool serialize_rpc_message(const rpc::RpcMessage& msg, std::vector<uint8_t>& output);
+
+bool deserialize_rpc_message(const std::vector<uint8_t>& input, rpc::RpcMessage& msg);
 
 } // namespace litepb
 

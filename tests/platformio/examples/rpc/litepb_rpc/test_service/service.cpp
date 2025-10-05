@@ -237,7 +237,7 @@ void test_invalid_sensor_ids()
     RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
 
     bool callback_called      = false;
-    RpcError::Code error_code = RpcError::OK;
+    SensorStatus received_status = SensorStatus::OK;
 
     peer_b_channel.on_internal<ReadingRequest, ReadingResponse>(
         1, 1, [](uint64_t src_addr, const ReadingRequest& req) -> Result<ReadingResponse> {
@@ -245,7 +245,11 @@ void test_invalid_sensor_ids()
             Result<ReadingResponse> result;
 
             if (req.sensor_id < 0) {
-                result.error.code = RpcError::CUSTOM_ERROR;
+                // Return application-specific error through the response data
+                result.value.sensor_id   = req.sensor_id;
+                result.value.temperature = 0.0f;
+                result.value.status      = SensorStatus::ERROR;  // Use application error status
+                result.error.code        = RpcError::OK;  // RPC itself succeeded
             }
             else {
                 result.value.sensor_id   = req.sensor_id;
@@ -261,9 +265,10 @@ void test_invalid_sensor_ids()
     request.sensor_id = -1;
 
     peer_a_channel.call_internal<ReadingRequest, ReadingResponse>(
-        1, 1, request, [&callback_called, &error_code](const Result<ReadingResponse>& result) {
+        1, 1, request, [&callback_called, &received_status](const Result<ReadingResponse>& result) {
             callback_called = true;
-            error_code      = result.error.code;
+            TEST_ASSERT_TRUE(result.ok());  // RPC should succeed
+            received_status = result.value.status;
         });
 
     for (int i = 0; i < 20 && !callback_called; ++i) {
@@ -272,7 +277,7 @@ void test_invalid_sensor_ids()
     }
 
     TEST_ASSERT_TRUE(callback_called);
-    TEST_ASSERT_EQUAL_INT32(RpcError::CUSTOM_ERROR, static_cast<int32_t>(error_code));
+    TEST_ASSERT_EQUAL_INT32(SensorStatus::ERROR, static_cast<int32_t>(received_status));
 }
 
 void test_custom_timeouts()
@@ -328,7 +333,8 @@ void test_error_code_propagation()
         1, 1, [](uint64_t src_addr, const ReadingRequest& req) -> Result<ReadingResponse> {
             (void) src_addr;
             Result<ReadingResponse> result;
-            result.error.code = RpcError::CUSTOM_ERROR;
+            // Use TRANSPORT_ERROR as an example of RPC-level error
+            result.error.code = RpcError::TRANSPORT_ERROR;
             return result;
         });
 
@@ -347,7 +353,7 @@ void test_error_code_propagation()
     }
 
     TEST_ASSERT_TRUE(callback_called);
-    TEST_ASSERT_EQUAL_INT32(RpcError::CUSTOM_ERROR, static_cast<int32_t>(received_error_code));
+    TEST_ASSERT_EQUAL_INT32(RpcError::TRANSPORT_ERROR, static_cast<int32_t>(received_error_code));
 }
 
 void test_response_serialization()

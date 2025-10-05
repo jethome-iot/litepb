@@ -20,11 +20,16 @@ public:
 
     void connect_to_peer(LoopbackTransport* peer) { peer_ = peer; }
 
-    bool send(const uint8_t* data, size_t len) override
+    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id) override
     {
         if (!peer_) {
             return false;
         }
+
+        // Store metadata for recv
+        peer_->last_src_addr_ = src_addr;
+        peer_->last_dst_addr_ = dst_addr;
+        peer_->last_msg_id_ = msg_id;
 
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
@@ -32,8 +37,13 @@ public:
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len) override
+    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr, uint16_t& msg_id) override
     {
+        // Return stored metadata
+        src_addr = last_src_addr_;
+        dst_addr = last_dst_addr_;
+        msg_id = last_msg_id_;
+
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
             buffer[count++] = rx_queue_.front();
@@ -47,6 +57,9 @@ public:
 private:
     LoopbackTransport* peer_;
     std::queue<uint8_t> rx_queue_;
+    uint64_t last_src_addr_ = 0;
+    uint64_t last_dst_addr_ = 0;
+    uint16_t last_msg_id_ = 0;
 };
 
 void test_client_server_roundtrip()
@@ -224,7 +237,7 @@ void test_error_propagation()
             litepb::Result<EchoResponse> result;
 
             if (req.value < 0) {
-                result.error.code = litepb::RpcError::CUSTOM_ERROR;
+                result.error.code = litepb::RpcError::TRANSPORT_ERROR;
             }
             else {
                 result.value.value   = req.value;
@@ -250,7 +263,7 @@ void test_error_propagation()
     }
 
     TEST_ASSERT_TRUE(error_received);
-    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::CUSTOM_ERROR, static_cast<int32_t>(error_code));
+    TEST_ASSERT_EQUAL_INT32(litepb::RpcError::TRANSPORT_ERROR, static_cast<int32_t>(error_code));
 }
 
 int runTests()

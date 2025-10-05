@@ -1,0 +1,40 @@
+syntax = "proto3";
+package litepb.rpc;
+
+// RPC message with protocol versioning
+message RpcMessage {
+    // Protocol version for backward compatibility
+    uint32 version = 1;         // Currently version 1
+    
+    // Service dispatch
+    uint32 service_id = 2;      // Service identifier for multiplexing
+    uint32 method_id = 3;       // Method within the service
+    
+    // Message semantics
+    enum MessageType {
+        REQUEST = 0;    // Expects response
+        RESPONSE = 1;   // Reply to request
+        EVENT = 2;      // Fire-and-forget
+    }
+    MessageType message_type = 4;
+    
+    // Payload based on message_type
+    oneof payload {
+        bytes request_data = 5;        // For REQUEST
+        RpcResponse response = 6;      // For RESPONSE  
+        bytes event_data = 7;          // For EVENT
+    }
+}
+
+// Response wrapper (RPC errors only)
+message RpcResponse {
+    enum RpcErrorCode {
+        OK = 0;
+        TIMEOUT = 1;
+        PARSE_ERROR = 2;
+        TRANSPORT_ERROR = 3;
+        HANDLER_NOT_FOUND = 4;
+    }
+    RpcErrorCode error_code = 1;
+    bytes response_data = 2;    // App response (with app-level errors)
+}
