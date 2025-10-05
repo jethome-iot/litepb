@@ -46,7 +46,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ steps.repo.outputs.owner }}/litepb
+          images: ghcr.io/${{ steps.repo.outputs.owner }}/litepb-dev
           tags: |
             type=raw,value=latest
             type=sha,prefix=,format=long
@@ -60,8 +60,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/litepb:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/litepb:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/litepb-dev:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/litepb-dev:buildcache,mode=max
           
       - name: Show image digest
         run: |

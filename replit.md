@@ -29,7 +29,7 @@ Communication style: Simple, everyday language
 **Containerized Build System:**
 - All GitHub Actions CI jobs run in a Docker container for consistent, fast builds
 - Eliminates setup overhead (~1-2 minutes per job saved)
-- Image hosted on GitHub Container Registry: `ghcr.io/<owner>/litepb:latest`
+- Image hosted on GitHub Container Registry: `ghcr.io/<owner>/litepb-dev:latest`
 
 **Container Contents:**
 - Python 3.11 with PlatformIO, protobuf, jinja2
