@@ -7,17 +7,30 @@ on:
   workflow_dispatch:
 
 jobs:
+  prepare:
+    name: Prepare Environment
+    runs-on: [self-hosted, X64]
+    outputs:
+      container_image: ${{ steps.image.outputs.name }}
+    steps:
+      - name: Compute container image name
+        id: image
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "name=ghcr.io/${owner}/litepb:latest" >> $GITHUB_OUTPUT
+  
   format-check:
     name: Format Check
     runs-on: [self-hosted, X64]
+    needs: prepare
+    container:
+      image: ${{ needs.prepare.outputs.container_image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup development environment
-        uses: ./.github/actions/setup-dev
-        with:
-          install-clang-format: 'true'
           
       - name: Run format check
         run: ./scripts/format_check.sh
@@ -25,14 +38,15 @@ jobs:
   test:
     name: PlatformIO Tests
     runs-on: [self-hosted, X64]
+    needs: prepare
+    container:
+      image: ${{ needs.prepare.outputs.container_image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup development environment
-        uses: ./.github/actions/setup-dev
-        with:
-          install-platformio: 'true'
           
       - name: Run tests
         run: pio test
@@ -40,15 +54,15 @@ jobs:
   test-interop:
     name: Test Interop
     runs-on: [self-hosted, X64]
+    needs: prepare
+    container:
+      image: ${{ needs.prepare.outputs.container_image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup development environment
-        uses: ./.github/actions/setup-dev
-        with:
-          install-cmake: 'true'
-          python-packages: 'protobuf jinja2'
           
       - name: Run interop tests
         run: ./tests/interop/run_tests.sh
@@ -56,14 +70,15 @@ jobs:
   build-examples:
     name: Build Examples
     runs-on: [self-hosted, X64]
+    needs: prepare
+    container:
+      image: ${{ needs.prepare.outputs.container_image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup development environment
-        uses: ./.github/actions/setup-dev
-        with:
-          install-platformio: 'true'
           
       - name: Find and build examples
         run: |
@@ -110,18 +125,18 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: [self-hosted, X64]
+    needs: prepare
+    container:
+      image: ${{ needs.prepare.outputs.container_image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       contents: read
       pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup development environment
-        uses: ./.github/actions/setup-dev
-        with:
-          install-platformio: 'true'
-          install-coverage-tools: 'true'
           
       - name: Run coverage tests
         run: |
