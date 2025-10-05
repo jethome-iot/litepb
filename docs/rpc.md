@@ -43,22 +43,44 @@ LitePB RPC is a lightweight, asynchronous RPC layer built for embedded systems a
 
 ## Wire Protocol
 
-### Message Format
+### Frame Structure
+
+All RPC messages follow a consistent framing structure with addressing and service multiplexing:
 
 **Stream Transports** (UART, TCP):
 ```
-[msg_id:varint][method_id:varint][payload_len:varint][protobuf_data]
+[src_addr:8bytes][dst_addr:8bytes][msg_id:varint][service_id:varint][method_id:varint][payload_len:varint][payload]
 ```
 
 **Packet Transports** (UDP, LoRa):
 ```
-[msg_id:varint][method_id:varint][protobuf_data]
+[src_addr:8bytes][dst_addr:8bytes][msg_id:varint][service_id:varint][method_id:varint][payload]
 ```
 
-**Response Format**:
-```
-[msg_id:varint][method_id:varint][error_code:varint][app_code:varint][payload_len:varint][protobuf_data]
-```
+### Field Descriptions
+
+- **src_addr** (8 bytes): Source node address, little-endian
+- **dst_addr** (8 bytes): Destination node address, little-endian
+- **msg_id** (varint): 16-bit message ID for correlating requests/responses (0 = fire-and-forget event)
+- **service_id** (varint): 16-bit service identifier for multiplexing
+- **method_id** (varint): 32-bit method identifier within the service
+- **payload_len** (varint): Length of payload (stream transports only)
+- **payload**: Protobuf-encoded request or response data
+
+### Addressing System
+
+The RPC system supports flexible addressing modes:
+
+- **Direct Addressing**: Messages sent to specific node addresses (1-65535)
+- **Broadcast** (`RPC_ADDRESS_BROADCAST` = 0xFFFFFFFFFFFFFFFF): Messages sent to all nodes
+- **Wildcard** (`RPC_ADDRESS_WILDCARD` = 0): Accept messages from any source
+
+### Response Handling
+
+Responses use the same frame structure as requests. The correlation happens via:
+- Matching `msg_id` between request and response
+- Source/destination addresses are swapped in the response
+- Error handling is done at the application level within the protobuf payload
 
 ## Quick Start
 
@@ -139,21 +161,32 @@ public:
 
 ## Error Handling
 
-Two-layer error system:
+The RPC system uses a two-layer error model:
 
 1. **RPC Layer Errors** - Transport and protocol issues
-   - `OK`, `TIMEOUT`, `PARSE_ERROR`, `HANDLER_NOT_FOUND`
+   - `OK` (0): Successful operation
+   - `TIMEOUT` (1): Request exceeded deadline
+   - `PARSE_ERROR` (2): Failed to parse message
+   - `TRANSPORT_ERROR` (3): Transport layer failure
+   - `HANDLER_NOT_FOUND` (4): No handler registered for method
+   - `CUSTOM_ERROR` (100+): Application-defined errors
 
 2. **Application Errors** - Business logic errors
-   - Custom error codes defined by application
+   - Custom error codes defined within protobuf response messages
 
 ```cpp
-if (result.error.code != litepb::RpcError::OK) {
-    // Handle RPC error
-} else if (result.error.app_code != 0) {
-    // Handle application error
-}
+// RPC layer errors are handled in the callback
+client.Add(req, [](const litepb::Result<Response>& result) {
+    if (result.error.code != litepb::RpcError::OK) {
+        // Handle RPC layer error (timeout, transport, etc.)
+        return;
+    }
+    // Process successful response
+    // Application errors would be in the response message itself
+});
 ```
+
+Note: Error codes are not part of the wire protocol framing. RPC layer errors are detected by the framework (timeouts, parsing failures), while application errors are encoded within the protobuf response payload.
 
 ## Examples
 
