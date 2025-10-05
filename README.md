@@ -336,13 +336,26 @@ See `examples/rpc/litepb_rpc/README.md` for detailed documentation.
 
 LitePB achieves **100% wire format compatibility** with standard Protocol Buffers (protoc):
 
-✅ **All scalar types** - int32, int64, uint32, uint64, sint32, sint64, fixed32, fixed64, sfixed32, sfixed64, float, double, bool, string, bytes
-✅ **Zigzag encoding** - Correct sint32/sint64 encoding for negative numbers
-✅ **Packed repeated fields** - Proto3 default packed encoding
-✅ **Map fields** - Semantic interoperability (wire format ordering is undefined per spec)
-✅ **Nested messages** - Length-delimited encoding
-✅ **Oneof fields** - Union types with correct wire format
-✅ **Enum types** - Varint encoding
+✅ **All scalar types**
+   - int32, int64, uint32, uint64, sint32, sint64, fixed32, fixed64, sfixed32, sfixed64, float, double, bool, string, bytes
+
+✅ **Zigzag encoding**
+   - Correct sint32/sint64 encoding for negative numbers
+
+✅ **Packed repeated fields**
+   - Proto3 default packed encoding
+
+✅ **Map fields**
+   - Semantic interoperability (wire format ordering is undefined per spec)
+
+✅ **Nested messages**
+   - Length-delimited encoding
+
+✅ **Oneof fields**
+   - Union types with correct wire format
+
+✅ **Enum types**
+   - Varint encoding
 
 Tested with bidirectional encode/decode against protoc C++ implementation. See `tests/interop/` for comprehensive interoperability tests.
 
