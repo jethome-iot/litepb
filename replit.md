@@ -42,12 +42,11 @@ Communication style: Simple, everyday language
 - Protocol Buffers: protoc compiler with libprotobuf-dev, libabsl-dev
 - Non-root user (builder) for security
 
-**Automated Workflow:**
-- `build-docker.yml` - Builds and pushes image when `docker/Dockerfile` changes
-- Only runs on main `jethome-iot/litepb` repository (forks skip Docker build entirely)
-- Triggers on pushes to dev/master and PRs (only in main repo)
-- Tagged with both `latest` and commit SHA for versioning
-- All CI jobs use the official `ghcr.io/jethome-iot/litepb-dev:latest` image
+**Docker Image:**
+- **Official Image**: `ghcr.io/jethome-iot/litepb-dev:latest`
+- **Build Trigger**: Updates when `docker/Dockerfile` changes
+- **Versioning**: Tagged with both `latest` and commit SHA
+- **Usage**: All CI jobs use this image for consistency
 
 **Benefits:**
 - Consistent environment across GitHub Actions and local development
@@ -62,11 +61,11 @@ For full project documentation, see [README.md](README.md)
 
 **Core Tests:**
 - **PlatformIO Tests** - Runs all tests (core + examples) with auto-regeneration
-- **Code Coverage** - Generates coverage reports (93.8% line coverage, 100% function coverage)
+- **Code Coverage** - Generates HTML coverage reports in `tmp/coverage/coverage_report/`
 
 **Example Workflows:**
 - **LitePB RPC Example** - Multi-service RPC example (Sensor + Switch services)
-- **LitePB RPC Example Tests** - 38 tests across 4 test suites
+- **LitePB RPC Example Tests** - Comprehensive test suites for RPC functionality
 
 ## Code Formatting
 
@@ -94,33 +93,6 @@ All C++ code follows strict formatting rules enforced by clang-format:
 ./scripts/format_check.sh
 ```
 
-## GitHub Sync Scripts
-
-Generic scripts for syncing from private Replit repo to public GitHub repo:
-
-**scripts/dev/github_sync_initial.sh** - One-time initial push to public repo
-- Auto-detects repo names (strips `-replit` suffix for public)
-- Filters out Replit-specific files using `.github_sync_filter`
-- Shows preview of files to be synced before confirmation
-- Pushes directly to public master branch
-- Usage: `./scripts/dev/github_sync_initial.sh`
-
-**scripts/dev/github_sync_to_public.sh** - Ongoing syncs via PR
-- Auto-detects repo names
-- Syncs from private dev → public master (via PR)
-- Shows preview of files to be synced before confirmation
-- Usage: `./scripts/dev/github_sync_to_public.sh`
-
-**.github_sync_filter** - List of Replit-specific files/directories to exclude
-- Located at project root as hidden file
-- Excludes `scripts/dev/` to prevent syncing dev tools
-
-Both scripts support:
-- `-h` / `--help` for usage info
-- `--dry-run` to preview changes
-- `--yes` to skip confirmation prompts
-- File preview showing what will be synced (after filtering)
-- Verbose output with section headers and status indicators
 
 ## Current Status
 
@@ -134,13 +106,14 @@ Both scripts support:
 - **All Types Example** (`examples/serialization/all_types/`): Comprehensive protobuf types showcase, 335-byte serialization
 
 ### Test Coverage
-- **Overall**: 93.8% line coverage (320/341 lines), 100% function coverage (38/38 functions)
-- **Test Suites**: 146 tests across 5 core test suites + 38 RPC example tests
+- **Coverage Reports**: Generated in `tmp/coverage/` directory structure
+- **Report Organization**: Separate directories for core and RPC coverage analysis
+- **Comprehensive Test Suite**: Full coverage across core functionality, protocol features, and RPC implementation
 
 ### CI/CD
-- All 5 GitHub Actions jobs passing (Format Check, PlatformIO Tests, Test Interop, Build Examples, Code Coverage)
-- Format checking enforces clang-format style rules on all C++ code
-- Docker-based CI with consistent environment and fast builds (no setup overhead)
-- Uses Ubuntu 24.04 LTS GitHub-hosted runners (replaced self-hosted runners)
-- All workflows use official `ghcr.io/jethome-iot/litepb-dev:latest` Docker image
-- Fork repositories skip Docker build (only main `jethome-iot/litepb` repository builds images)
+- **GitHub Actions**: 5 jobs (Format Check, PlatformIO Tests, Test Interop, Build Examples, Code Coverage)
+- **Environment**: Ubuntu 24.04 GitHub-hosted runners
+- **Container**: `ghcr.io/jethome-iot/litepb-dev:latest` Docker image for consistent builds
+- **Code Quality**: Enforced via clang-format style rules on all C++ code
+- **Build Speed**: Docker-based CI eliminates dependency installation overhead
+- **Fork Support**: Fork repositories use the main repository's Docker image

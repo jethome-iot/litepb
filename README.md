@@ -239,12 +239,12 @@ pio test -vvv
 pio test -f "*test_enums*"
 ```
 
-**Test Coverage:**
-- 149/149 tests passing (100% pass rate)
-- 139 PlatformIO tests (45 core/rpc + 56 proto + 38 examples)
-- 10 interoperability tests (LitePB ↔ protoc C++)
-- 100% wire format compatibility with Protocol Buffers
-- Unity test framework
+**Test Suite:**
+- Comprehensive test coverage across all features
+- PlatformIO tests for core, RPC, protocol features, and examples
+- Interoperability tests validating wire format compatibility with protoc C++
+- Unity test framework for embedded platform testing
+- Coverage reports generated in `tmp/coverage/` directory
 
 ## Examples
 
