@@ -33,7 +33,7 @@ Communication style: Simple, everyday language
 **Containerized Build System:**
 - All GitHub Actions CI jobs run in a Docker container for consistent, fast builds
 - Eliminates setup overhead (~1-2 minutes per job saved)
-- Image hosted on GitHub Container Registry: `ghcr.io/<owner>/litepb-dev:latest`
+- Official image: `ghcr.io/jethome-iot/litepb-dev:latest` (used by all CI runs)
 
 **Container Contents:**
 - Python 3.11 with PlatformIO, protobuf, jinja2
@@ -44,9 +44,10 @@ Communication style: Simple, everyday language
 
 **Automated Workflow:**
 - `build-docker.yml` - Builds and pushes image when `docker/Dockerfile` changes
-- Triggers on pushes to dev/master and PRs (validates on PRs, pushes only from main repo)
+- Only runs on main `jethome-iot/litepb` repository (forks skip Docker build entirely)
+- Triggers on pushes to dev/master and PRs (only in main repo)
 - Tagged with both `latest` and commit SHA for versioning
-- Fork PRs can build but skip push (no packages:write permission needed)
+- All CI jobs use the official `ghcr.io/jethome-iot/litepb-dev:latest` image
 
 **Benefits:**
 - Consistent environment across GitHub Actions and local development
@@ -140,3 +141,6 @@ Both scripts support:
 - All 5 GitHub Actions jobs passing (Format Check, PlatformIO Tests, Test Interop, Build Examples, Code Coverage)
 - Format checking enforces clang-format style rules on all C++ code
 - Docker-based CI with consistent environment and fast builds (no setup overhead)
+- Uses Ubuntu 24.04 LTS GitHub-hosted runners (replaced self-hosted runners)
+- All workflows use official `ghcr.io/jethome-iot/litepb-dev:latest` Docker image
+- Fork repositories skip Docker build (only main `jethome-iot/litepb` repository builds images)
