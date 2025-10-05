@@ -1,6 +1,5 @@
 # LitePB Development Container
 # Optimized for CI/CD and local development environments
-# Based on requirements from .github/actions/setup-dev/action.yml
 
 FROM python:3.11-slim
 
