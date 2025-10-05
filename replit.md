@@ -96,6 +96,13 @@ All C++ code follows strict formatting rules enforced by clang-format:
 
 ## Current Status
 
+### RPC Protocol (Version 1)
+- **Protobuf-based Protocol**: RpcMessage with protocol versioning for backward compatibility
+- **Clean Layer Separation**: Transport handles addressing (src/dst/msg_id), RPC handles protocol
+- **Explicit Message Types**: REQUEST, RESPONSE, EVENT replacing magic values
+- **Error Separation**: RPC errors (timeout, transport) vs application errors
+- **All Tests Passing**: 298/298 test cases successful after refactoring
+
 ### Library Manifest
 - **library.json**: PlatformIO-compliant manifest with schema validation, proper keywords array, examples listing, and export rules
 - Successfully validated with `pio pkg pack` command
