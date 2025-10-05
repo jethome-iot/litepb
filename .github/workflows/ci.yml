@@ -13,11 +13,10 @@ jobs:
     outputs:
       container_image: ${{ steps.image.outputs.name }}
     steps:
-      - name: Compute container image name
+      - name: Set container image name
         id: image
         run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "name=ghcr.io/${owner}/litepb-dev:latest" >> $GITHUB_OUTPUT
+          echo "name=ghcr.io/jethome-iot/litepb-dev:latest" >> $GITHUB_OUTPUT
   
   format-check:
     name: Format Check
