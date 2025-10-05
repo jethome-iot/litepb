@@ -24,6 +24,32 @@ Communication style: Simple, everyday language
 - **CMake**: Building standalone interoperability tests
 - **CPM**: Managing C++ dependencies for interoperability tests
 
+## Docker Environment
+
+**Containerized Build System:**
+- All GitHub Actions CI jobs run in a Docker container for consistent, fast builds
+- Eliminates setup overhead (~1-2 minutes per job saved)
+- Image hosted on GitHub Container Registry: `ghcr.io/<owner>/litepb:latest`
+
+**Container Contents:**
+- Python 3.11 with PlatformIO, protobuf, jinja2
+- Build tools: gcc, g++, make, CMake, build-essential
+- Code quality: clang-format, lcov, genhtml
+- Protocol Buffers: protoc compiler with libprotobuf-dev, libabsl-dev
+- Non-root user (builder) for security
+
+**Automated Workflow:**
+- `build-docker.yml` - Builds and pushes image when Dockerfile changes
+- Triggers on pushes to dev/master and PRs (validates on PRs, pushes only from main repo)
+- Tagged with both `latest` and commit SHA for versioning
+- Fork PRs can build but skip push (no packages:write permission needed)
+
+**Benefits:**
+- Consistent environment across GitHub Actions and local development
+- Faster CI (no dependency installation time)
+- Easy dependency versioning
+- Same tools everywhere
+
 ## Project Documentation
 For full project documentation, see [README.md](README.md)
 
@@ -109,4 +135,4 @@ Both scripts support:
 ### CI/CD
 - All 5 GitHub Actions jobs passing (Format Check, PlatformIO Tests, Test Interop, Build Examples, Code Coverage)
 - Format checking enforces clang-format style rules on all C++ code
-- Reusable composite action for setup reduces workflow duplication
+- Docker-based CI with consistent environment and fast builds (no setup overhead)
