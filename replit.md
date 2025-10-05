@@ -26,6 +26,10 @@ Communication style: Simple, everyday language
 
 ## Docker Environment
 
+**Docker Files Location:**
+- Docker infrastructure is organized in the `docker/` directory
+- `docker/Dockerfile` - Container definition for development environment
+
 **Containerized Build System:**
 - All GitHub Actions CI jobs run in a Docker container for consistent, fast builds
 - Eliminates setup overhead (~1-2 minutes per job saved)
@@ -39,7 +43,7 @@ Communication style: Simple, everyday language
 - Non-root user (builder) for security
 
 **Automated Workflow:**
-- `build-docker.yml` - Builds and pushes image when Dockerfile changes
+- `build-docker.yml` - Builds and pushes image when `docker/Dockerfile` changes
 - Triggers on pushes to dev/master and PRs (validates on PRs, pushes only from main repo)
 - Tagged with both `latest` and commit SHA for versioning
 - Fork PRs can build but skip push (no packages:write permission needed)

@@ -4,13 +4,11 @@ on:
   push:
     branches: ['dev', 'master']
     paths:
-      - 'Dockerfile'
-      - '.dockerignore'
+      - 'docker/Dockerfile'
       - '.github/workflows/build-docker.yml'
   pull_request:
     paths:
-      - 'Dockerfile'
-      - '.dockerignore'
+      - 'docker/Dockerfile'
       - '.github/workflows/build-docker.yml'
   workflow_dispatch:
 
@@ -56,7 +54,7 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: docker
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
