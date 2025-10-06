@@ -189,10 +189,11 @@ Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
 
 ### RPC Protocol (Version 1)
 - **Protobuf-based Protocol**: RpcMessage with protocol versioning for backward compatibility
-- **Clean Layer Separation**: Transport handles addressing (src/dst/msg_id), RPC handles protocol
+- **Clean Layer Separation**: Transport handles addressing (src/dst), RPC handles protocol including msg_id
+- **Logical Field Ordering**: Fields renumbered for clarity - version=1, msg_id=2, message_type=3
 - **Explicit Message Types**: REQUEST, RESPONSE, EVENT replacing magic values
 - **Error Separation**: RPC errors (timeout, transport) vs application errors
-- **All Tests Passing**: 298/298 test cases successful after refactoring
+- **All Tests Passing**: 260/260 test cases successful with new field numbering
 
 ### Library Manifest
 - **library.json**: PlatformIO-compliant manifest with schema validation, proper keywords array, examples listing, and export rules
