@@ -93,6 +93,25 @@ All C++ code follows strict formatting rules enforced by clang-format:
 ./scripts/format_check.sh
 ```
 
+## Build System Details
+
+### Protobuf Code Generation
+- **Generated Files**: All `.pb.h` and `.pb.cpp` files are auto-generated from `.proto` files during build
+- **Generation Location**: Files are generated in `.pio/build/<env>/litepb/generated/`
+- **Git Policy**: Generated files are NOT committed to the repository (see `.gitignore`)
+- **Build Integration**: PlatformIO automatically generates required proto files via `custom_litepb_protos` in `platformio.ini`
+
+### RPC Protocol Files
+- **Protocol Definition**: `proto/rpc_protocol.proto` defines the versioned RPC message format
+- **Auto-Generation**: All test environments generate `rpc_protocol.pb.h` automatically
+- **Include Path**: Generated files are accessible via `litepb/generated/` include path
+
+### Testing GitHub Actions Locally
+- **Tool**: Use `act` to test GitHub Actions workflows locally
+- **Installation**: `brew install act` (macOS) or see [act documentation](https://github.com/nektos/act)
+- **Usage**: Run `act` in the repository root to execute CI workflows locally
+- **Benefits**: Test CI changes without pushing to GitHub, faster iteration on workflow fixes
+
 
 ## Current Status
 
