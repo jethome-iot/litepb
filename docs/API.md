@@ -8,7 +8,6 @@
 - [RPC API](#rpc-api)
 - [Generated Code Interface](#generated-code-interface)
 - [Error Handling](#error-handling)
-- [Memory Management](#memory-management)
 - [Configuration Macros](#configuration-macros)
 
 ## Core Serialization API
@@ -602,47 +601,6 @@ if (!result.ok()) {
 }
 ```
 
-## Memory Management
-
-### Guidelines
-
-1. **Stack Allocation**: Use `FixedOutputStream` and `FixedInputStream` for embedded systems to avoid heap allocation.
-
-2. **Buffer Reuse**: Reuse stream objects and message structures to minimize allocations:
-```cpp
-BufferOutputStream output;
-for (int i = 0; i < 100; i++) {
-    output.clear();  // Reuse buffer
-    serialize(messages[i], output);
-    send(output.data(), output.size());
-}
-```
-
-3. **Message Pooling**: For frequently used messages, maintain a pool:
-```cpp
-class MessagePool {
-    std::vector<MyMessage> pool;
-    size_t next = 0;
-    
-public:
-    MyMessage& get() {
-        if (next >= pool.size()) {
-            pool.resize(pool.size() + 10);
-        }
-        return pool[next++];
-    }
-    
-    void reset() { next = 0; }
-};
-```
-
-### Memory Characteristics
-
-- **No Hidden Allocations**: The core library doesn't allocate memory internally
-- **Predictable Usage**: Memory usage is proportional to message size
-- **Zero-Copy Parsing**: Where possible, strings and bytes reference input buffer
-- **Compile-Time Sizing**: Use `byte_size()` to pre-allocate exact buffer sizes
-
 ## Configuration Macros
 
 ### Core Configuration
@@ -660,19 +618,14 @@ public:
 ### Platform-Specific Configuration
 
 ```cpp
-// For Arduino platforms
-#ifdef ARDUINO
-    #define LITEPB_ARDUINO_COMPAT
-#endif
-
 // For ESP-IDF
 #ifdef ESP_PLATFORM
     #define LITEPB_ESP32_COMPAT
 #endif
 
-// For STM32
-#ifdef STM32
-    #define LITEPB_STM32_COMPAT
+// For Linux native builds
+#ifdef __linux__
+    #define LITEPB_LINUX_COMPAT
 #endif
 ```
 

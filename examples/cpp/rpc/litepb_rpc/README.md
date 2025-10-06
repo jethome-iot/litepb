@@ -37,7 +37,6 @@ pio run -e litepb_rpc -t exec
 
 # For embedded platforms
 pio run -e esp32_rpc -t upload    # ESP32 with RPC
-pio run -e stm32_rpc -t upload    # STM32 with RPC
 ```
 
 ### Running Tests

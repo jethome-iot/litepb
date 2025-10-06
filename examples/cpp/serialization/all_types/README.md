@@ -34,7 +34,6 @@ pio run -t exec
 # Build for specific platforms
 pio run -e native -t exec     # Native platform
 pio run -e esp32 -t upload     # ESP32
-pio run -e stm32 -t upload     # STM32
 ```
 
 ### Manual Build

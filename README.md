@@ -9,7 +9,7 @@ LitePB is a high-performance, zero-dependency Protocol Buffers implementation sp
 
 **Key Highlights:**
 - 🚀 **Zero External Dependencies** - Pure C++17 implementation, no third-party libraries required
-- 🔧 **Embedded-First Design** - Optimized for ESP32, STM32, ARM Cortex-M, and other MCUs
+- 🔧 **Embedded-First Design** - Optimized for Native Linux and ESP32 (ESP-IDF)
 - 📦 **Complete Proto Support** - Full Proto2/Proto3 compatibility with 100% wire format interoperability
 - 🔄 **Async RPC Framework** - Production-ready RPC layer with peer-to-peer communication
 - 🎯 **Type-Safe Code Generation** - Python-based generator creates efficient, type-safe C++ code
@@ -59,7 +59,7 @@ The integrated RPC layer provides enterprise-grade remote procedure call capabil
 
 ### Prerequisites
 
-- C++17 compatible compiler (GCC 7+, Clang 5+, MSVC 2017+)
+- C++17 compatible compiler (GCC 7+, Clang 5+)
 - Python 3.7+ (for code generation)
 - Protocol Buffers compiler (`protoc`) - automatically downloaded if not present
 
@@ -85,13 +85,6 @@ lib_deps =
 
 build_flags = 
     -DLITEPB_WITH_RPC  ; Enable RPC support (optional)
-```
-
-### CMake Integration
-
-```cmake
-add_subdirectory(litepb)
-target_link_libraries(your_target PRIVATE litepb)
 ```
 
 ## Quick Start
@@ -277,34 +270,14 @@ while (running) {
 
 ## Platform Support
 
-### Embedded Platforms
+LitePB is specifically designed for:
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| ESP32 | ✅ Fully Supported | ESP-IDF and Arduino |
-| STM32 | ✅ Fully Supported | STM32Cube and Arduino |
-| Arduino | ✅ Fully Supported | AVR, SAMD, etc. |
-| ARM Cortex-M | ✅ Fully Supported | M0/M0+/M3/M4/M7 |
-| Nordic nRF52 | ✅ Fully Supported | nRF52832/840 |
-| Raspberry Pi Pico | ✅ Fully Supported | RP2040 |
+- **Native Linux** - Full support with GCC 7+ or Clang 5+
+- **ESP32 (ESP-IDF)** - Complete integration with ESP-IDF framework
 
-### Native Platforms
+### Build System
 
-| Platform | Status | Compiler Support |
-|----------|--------|-----------------|
-| Linux | ✅ Fully Supported | GCC 7+, Clang 5+ |
-| macOS | ✅ Fully Supported | Apple Clang, GCC |
-| Windows | ✅ Fully Supported | MSVC 2017+, MinGW |
-| FreeBSD | ✅ Fully Supported | Clang, GCC |
-
-### Build Systems
-
-- **PlatformIO** - First-class support with library.json
-- **CMake** - Full CMake integration
-- **Make** - Traditional Makefile support
-- **Arduino IDE** - Library manager compatible
-- **ESP-IDF** - Component CMakeLists.txt included
-- **STM32CubeIDE** - Direct integration support
+LitePB uses **PlatformIO** for build management, providing first-class support with library.json configuration.
 
 ## API Documentation
 
@@ -401,31 +374,6 @@ cd tests/cpp/interop
 - **Interoperability Tests** - Wire format compatibility with protoc
 - **Platform Tests** - Embedded and native platform specific tests
 - **Performance Tests** - Benchmarks and optimization validation
-
-## Performance
-
-LitePB is optimized for both speed and size:
-
-### Memory Usage
-- **Code Size**: ~15-30KB (depending on features used)
-- **RAM Usage**: Zero heap allocation for fixed-size messages
-- **Stack Usage**: Configurable, typically <1KB
-
-### Benchmarks
-
-| Operation | Time (ESP32) | Time (STM32F4) | Time (x86-64) |
-|-----------|--------------|----------------|---------------|
-| Serialize 100-byte message | 12µs | 18µs | 0.8µs |
-| Parse 100-byte message | 15µs | 22µs | 1.1µs |
-| RPC round-trip (UART) | 2.5ms | 3.1ms | 0.4ms |
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
-- Development setup
-- Code style and formatting
-- Testing requirements  
-- Pull request process
 
 ## License
 
