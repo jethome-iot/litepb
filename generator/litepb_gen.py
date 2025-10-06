@@ -74,16 +74,34 @@ def main():
     # Automatically add 'proto' folder to include paths if it exists
     include_paths = args.include.copy()
     
-    # Try to find proto directory relative to current directory and script directory
-    proto_dirs = [
-        Path.cwd() / 'proto',
-        Path(__file__).parent.parent / 'proto'
-    ]
+    # Find proto directory relative to the generator's location
+    # This ensures the generator works regardless of where it's invoked from
+    generator_dir = Path(__file__).parent
+    project_root = generator_dir.parent
+    proto_dir = project_root / 'proto'
     
-    for proto_dir in proto_dirs:
-        if proto_dir.exists() and proto_dir.is_dir():
-            if str(proto_dir) not in include_paths:
-                include_paths.append(str(proto_dir))
+    # Add proto directory to include paths if it exists
+    if proto_dir.exists() and proto_dir.is_dir():
+        if str(proto_dir) not in include_paths:
+            include_paths.append(str(proto_dir))
+    
+    # Validate that the critical proto/litepb directory exists
+    litepb_dir = proto_dir / 'litepb'
+    if not litepb_dir.exists() or not litepb_dir.is_dir():
+        print(f"Error: Critical directory 'proto/litepb' not found at {litepb_dir}", file=sys.stderr)
+        print(f"Expected project structure:", file=sys.stderr)
+        print(f"  {project_root}/", file=sys.stderr)
+        print(f"    proto/", file=sys.stderr)
+        print(f"      litepb/", file=sys.stderr)
+        print(f"        rpc_protocol.proto", file=sys.stderr)
+        print(f"        rpc_options.proto", file=sys.stderr)
+        print(f"    generator/", file=sys.stderr)
+        print(f"      litepb_gen.py (this file)", file=sys.stderr)
+        return 1
+    
+    # Add litepb directory to include paths as well
+    if str(litepb_dir) not in include_paths:
+        include_paths.append(str(litepb_dir))
     
     # Initialize parser and generator
     proto_parser = ProtoParser(import_paths=include_paths)
