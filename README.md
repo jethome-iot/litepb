@@ -322,8 +322,6 @@ class InputStream {
 };
 ```
 
-For complete API documentation, see [docs/API.md](docs/API.md).
-
 ## RPC Framework
 
 The RPC framework provides a complete solution for remote procedure calls:
@@ -334,8 +332,6 @@ The RPC framework provides a complete solution for remote procedure calls:
 - **Message Framing** - Automatic framing for stream transports
 - **Error Handling** - Comprehensive error reporting
 - **Async Operations** - Non-blocking, callback-based API
-
-For detailed RPC documentation, see [docs/RPC.md](docs/RPC.md).
 
 ## Examples
 
