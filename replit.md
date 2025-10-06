@@ -11,7 +11,7 @@ Communication style: Simple, everyday language
 
 ## System Architecture
 - **Build System**: PlatformIO with consistent workflow between local development and CI/CD
-- **RPC System**: 8-byte source/destination addressing supporting direct, broadcast, and wildcard messaging
+- **RPC System**: Clean layer separation - transport handles addressing (src/dst), RPC protocol handles message correlation (msg_id) and protocol logic
 - **Error Handling**: Two-layer system with RPC-layer errors and application-specific error codes
 - **Serialization**: Wire format compatible with standard Protocol Buffers including zigzag encoding, packed repeated fields, and map field serialization
 - **Code Style**: Enforced via clang-format (4-space indentation, left-aligned pointers, 132-character column limit)
