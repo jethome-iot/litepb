@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# Exit on error and report where it happened
+set -e
+set -o pipefail
+
+# Error handler to show where the script failed
+error_handler() {
+    local line_no=$1
+    echo ""
+    echo "ERROR: Script failed at line $line_no"
+    echo "Check the command above this line for the error."
+    exit 1
+}
+
+# Set up error trap
+trap 'error_handler $LINENO' ERR
+
 # Configuration Variables
 ENV_NAME="native_coverage"
 TMP_DIR="tmp/${ENV_NAME}"
@@ -38,11 +54,8 @@ echo "✓ Cleaned previous coverage data"
 echo ""
 
 echo "Step 2: Running tests with coverage instrumentation..."
+echo "Running: pio test -e ${ENV_NAME}"
 pio test -e "${ENV_NAME}"
-if [ $? -ne 0 ]; then
-    echo "ERROR: Tests failed"
-    exit 1
-fi
 echo "✓ Tests completed"
 echo ""
 
@@ -69,20 +82,15 @@ fi
 
 echo "Using gcov at: $GCOV_TOOL"
 
-# Run lcov from gcov directory so intermediate files go there
-cd "${GCOV_DIR}"
-GCOV_DIR_ABS=$(pwd)
-cd - > /dev/null
-
 # Capture coverage data using lcov
+echo "Capturing coverage data from ${BUILD_DIR}..."
 lcov --capture \
      --directory "${BUILD_DIR}" \
      --output-file "${COVERAGE_INFO}" \
      --gcov-tool "$GCOV_TOOL" \
      --ignore-errors inconsistent \
      --base-directory . \
-     --working-directory "${GCOV_DIR_ABS}" \
-     --quiet || echo "Note: lcov may show warnings (this is expected)"
+     --quiet
 
 # Clean up any stray gcov files outside tmp/
 find . -maxdepth 1 -name "*.gcov*" -delete 2>/dev/null || true
@@ -99,7 +107,7 @@ done
 EXTRACT_CMD="${EXTRACT_CMD} --output-file ${COVERAGE_FILTERED} --quiet"
 
 # Execute the extract command
-eval "${EXTRACT_CMD}" || true
+eval "${EXTRACT_CMD}"
 
 echo "✓ Filtered to LitePB source files"
 echo ""
@@ -109,14 +117,14 @@ genhtml "${COVERAGE_FILTERED}" \
         --output-directory "${COVERAGE_REPORT}" \
         --title "LitePB Code Coverage" \
         --legend \
-        --quiet || echo "Report generation completed"
+        --quiet
 
 echo "✓ HTML report generated"
 echo ""
 
 echo "Step 6: Coverage Summary"
 echo "========================"
-lcov --list "${COVERAGE_FILTERED}" || true
+lcov --list "${COVERAGE_FILTERED}"
 
 echo ""
 echo "======================================"
