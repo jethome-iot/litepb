@@ -30,15 +30,15 @@
   "platforms": "*",
   "headers": "litepb.h",
   "examples": [
-    "examples/serialization/basic/*",
-    "examples/serialization/all_types/*",
-    "examples/rpc/litepb_rpc/*"
+    "examples/cpp/serialization/basic/*",
+    "examples/cpp/serialization/all_types/*",
+    "examples/cpp/rpc/litepb_rpc/*"
   ],
   "dependencies": {},
   "export": {
     "include": [
-      "include/*",
-      "src/*",
+      "cpp/include/*",
+      "cpp/src/*",
       "scripts/platformio_generator.py",
       "examples/*",
       "README.md",
@@ -56,8 +56,8 @@
   "build": {
     "flags": [],
     "unflags": [],
-    "includeDir": "include",
-    "srcDir": "src",
+    "includeDir": "cpp/include",
+    "srcDir": "cpp/src",
     "srcFilter": "+<*> -<.git/> -<.svn/>",
     "extraScript": "scripts/platformio_generator.py",
     "libLDFMode": "chain+"

@@ -20,11 +20,11 @@ args = "PlatformIO Tests"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "LitePB RPC Example"
+args = "LitePB RPC Example Tests"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "LitePB RPC Example Tests"
+args = "LitePB RPC Example"
 
 [[workflows.workflow]]
 name = "Code Coverage"
@@ -49,17 +49,6 @@ args = "pio test"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "LitePB RPC Example"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd examples/rpc/litepb_rpc && pio run -e litepb_rpc && .pio/build/litepb_rpc/program"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
 name = "LitePB RPC Example Tests"
 author = "agent"
 
@@ -69,6 +58,14 @@ args = "pio test -e test_sensor_loopback -e test_sensor_service -e test_sensor_s
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "LitePB RPC Example"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd examples/cpp/rpc/litepb_rpc && pio run -e litepb_rpc && .pio/build/litepb_rpc/program"
 
 [nix]
 channel = "stable-25_05"

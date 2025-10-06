@@ -60,9 +60,9 @@ find . -maxdepth 1 -name "*.gcov*" -delete 2>/dev/null || true
 echo "✓ Coverage data captured"
 echo ""
 
-echo "Step 4: Filtering coverage to src/litepb/ only..."
+echo "Step 4: Filtering coverage to cpp/src/litepb/ only..."
 lcov --extract tmp/coverage/coverage.info \
-     "*/src/litepb/*" \
+     "*/cpp/src/litepb/*" \
      --output-file tmp/coverage/coverage_filtered.info \
      --quiet || true
 

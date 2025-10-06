@@ -77,10 +77,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(unity)
 
 # Set up paths
-set(LITEPB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+set(LITEPB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 set(LITEPB_GENERATOR "${LITEPB_ROOT}/generator/litepb_gen.py")
-set(LITEPB_INCLUDE "${LITEPB_ROOT}/include")
-set(LITEPB_SRC "${LITEPB_ROOT}/src")
+set(LITEPB_INCLUDE "${LITEPB_ROOT}/cpp/include")
+set(LITEPB_SRC "${LITEPB_ROOT}/cpp/src")
 
 # Generated code output directory
 set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")

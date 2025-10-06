@@ -97,7 +97,8 @@ def find_generator_path(env: Any, project_dir: Path) -> Path:
     # Add additional search locations
     search_paths.extend([
         project_dir / "litepb_gen",
-        project_dir / ".." / ".." / ".." / "litepb_gen",  # For examples
+        project_dir / ".." / ".." / ".." / "litepb_gen",  # For examples at old location
+        project_dir / ".." / ".." / ".." / ".." / "litepb_gen",  # For examples at new cpp location
         Path("litepb_gen").absolute(),
     ])
 
