@@ -1,5 +1,4 @@
-#ifndef LITEPB_CORE_PROTO_READER_H
-#define LITEPB_CORE_PROTO_READER_H
+#pragma once
 
 #include "litepb/core/proto_writer.h"
 #include "litepb/core/streams.h"
@@ -43,5 +42,3 @@ private:
 };
 
 } // namespace litepb
-
-#endif

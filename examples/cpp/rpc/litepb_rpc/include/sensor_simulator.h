@@ -1,5 +1,4 @@
-#ifndef SENSOR_SIMULATOR_H
-#define SENSOR_SIMULATOR_H
+#pragma once
 
 #include "sensor.pb.h"
 #include <cstdlib>
@@ -64,5 +63,3 @@ private:
     bool deterministic_mode_;
     float deterministic_variation_;
 };
-
-#endif

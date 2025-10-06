@@ -1,5 +1,4 @@
-#ifndef LITEPB_EXAMPLES_TCP_TRANSPORT_H
-#define LITEPB_EXAMPLES_TCP_TRANSPORT_H
+#pragma once
 
 #include "litepb/rpc/transport.h"
 #include <arpa/inet.h>
@@ -805,4 +804,3 @@ private:
 
 } // namespace litepb
 
-#endif

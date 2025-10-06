@@ -1,5 +1,4 @@
-#ifndef LITEPB_CORE_STREAMS_H
-#define LITEPB_CORE_STREAMS_H
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -158,5 +157,3 @@ public:
 };
 
 } // namespace litepb
-
-#endif

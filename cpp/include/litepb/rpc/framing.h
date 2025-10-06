@@ -1,5 +1,4 @@
-#ifndef LITEPB_RPC_FRAMING_H
-#define LITEPB_RPC_FRAMING_H
+#pragma once
 
 #include "rpc_protocol.pb.h"
 #include <cstddef>
@@ -40,5 +39,3 @@ bool serialize_rpc_message(const rpc::RpcMessage& msg, std::vector<uint8_t>& out
 bool deserialize_rpc_message(const std::vector<uint8_t>& input, rpc::RpcMessage& msg);
 
 } // namespace litepb
-
-#endif

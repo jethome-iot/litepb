@@ -1,5 +1,4 @@
-#ifndef LITEPB_H
-#define LITEPB_H
+#pragma once
 
 #include "litepb/core/proto_reader.h"
 #include "litepb/core/proto_writer.h"
@@ -41,5 +40,3 @@ inline size_t byte_size(const T& msg)
 }
 
 } // namespace litepb
-
-#endif

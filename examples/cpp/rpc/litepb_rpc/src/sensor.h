@@ -1,5 +1,4 @@
-#ifndef SENSOR_H
-#define SENSOR_H
+#pragma once
 
 #include "litepb/litepb.h"
 #include "litepb/rpc/channel.h"
@@ -105,5 +104,3 @@ private:
 };
 
 void setup_sensor_service(litepb::RpcChannel& channel, examples::sensor::SensorServiceServer& service);
-
-#endif

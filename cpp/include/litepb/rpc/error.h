@@ -1,5 +1,4 @@
-#ifndef LITEPB_RPC_ERROR_H
-#define LITEPB_RPC_ERROR_H
+#pragma once
 
 namespace litepb {
 
@@ -50,5 +49,3 @@ struct Result
 };
 
 } // namespace litepb
-
-#endif

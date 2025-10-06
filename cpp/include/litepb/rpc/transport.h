@@ -1,5 +1,4 @@
-#ifndef LITEPB_RPC_TRANSPORT_H
-#define LITEPB_RPC_TRANSPORT_H
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -227,5 +226,3 @@ public:
 };
 
 } // namespace litepb
-
-#endif

@@ -9,6 +9,7 @@ Communication style: Simple, everyday language
 **Development Practices:**
 - Always set executable permissions (+x) for all scripts in `scripts/**/*.{sh,py}`
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
+- Use `#pragma once` at the top of all C++ header files instead of traditional include guards - this is simpler, less error-prone, and supported by all modern compilers
 
 ## System Architecture
 - **Build System**: PlatformIO with centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include)
@@ -16,6 +17,7 @@ Communication style: Simple, everyday language
 - **Error Handling**: Two-layer system with RPC-layer errors and application-specific error codes
 - **Serialization**: Wire format compatible with standard Protocol Buffers including zigzag encoding, packed repeated fields, and map field serialization
 - **Code Style**: Enforced via clang-format (4-space indentation, left-aligned pointers, 132-character column limit)
+- **Header Guards**: Uses `#pragma once` instead of traditional include guards (#ifndef/#define/#endif) for all C++ headers, including both manually written and auto-generated code
 
 ## External Dependencies
 - **PlatformIO**: Build automation, dependency management, and testing frameworks

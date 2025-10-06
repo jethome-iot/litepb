@@ -1,5 +1,4 @@
-#ifndef EXAMPLES_PLATFORM_TIME_H
-#define EXAMPLES_PLATFORM_TIME_H
+#pragma once
 
 #include <cstdint>
 
@@ -163,4 +162,3 @@ uint32_t get_current_time_ms()
 #endif // YOUR_PLATFORM
 #endif
 
-#endif // EXAMPLES_PLATFORM_TIME_H

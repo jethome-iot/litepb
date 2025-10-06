@@ -1,5 +1,4 @@
-#ifndef PROTOC_HELPERS_H
-#define PROTOC_HELPERS_H
+#pragma once
 
 #include <cstdint>
 #include <map>
@@ -88,5 +87,3 @@ bool protoc_decode_oneof_test(const std::vector<uint8_t>& buffer, OneofTestData&
 
 std::vector<uint8_t> protoc_encode_enum_test(const EnumTestData& data);
 bool protoc_decode_enum_test(const std::vector<uint8_t>& buffer, EnumTestData& data);
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef LITEPB_EXAMPLES_UART_TRANSPORT_H
-#define LITEPB_EXAMPLES_UART_TRANSPORT_H
+#pragma once
 
 #include "litepb/rpc/transport.h"
 #include <cstddef>
@@ -536,5 +535,3 @@ private:
 };
 
 } // namespace litepb
-
-#endif

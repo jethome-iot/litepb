@@ -1,5 +1,4 @@
-#ifndef UNITY_CONFIG_H
-#define UNITY_CONFIG_H
+#pragma once
 
 // Enable support for double-precision assertions in Unity
 #define UNITY_INCLUDE_DOUBLE
@@ -8,5 +7,3 @@
 
 // Enable 64-bit integer assertions (int64_t / uint64_t)
 #define UNITY_SUPPORT_64
-
-#endif // UNITY_CONFIG_H

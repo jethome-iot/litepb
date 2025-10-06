@@ -1,5 +1,4 @@
-#ifndef SWITCH_H
-#define SWITCH_H
+#pragma once
 
 #include "litepb/litepb.h"
 #include "litepb/rpc/channel.h"
@@ -102,5 +101,3 @@ private:
 };
 
 void setup_switch_service(litepb::RpcChannel& channel, switch_service::SwitchServiceServer& service);
-
-#endif

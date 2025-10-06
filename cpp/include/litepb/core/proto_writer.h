@@ -1,5 +1,4 @@
-#ifndef LITEPB_CORE_PROTO_WRITER_H
-#define LITEPB_CORE_PROTO_WRITER_H
+#pragma once
 
 #include "litepb/core/streams.h"
 #include <cstdint>
@@ -53,5 +52,3 @@ private:
 };
 
 } // namespace litepb
-
-#endif

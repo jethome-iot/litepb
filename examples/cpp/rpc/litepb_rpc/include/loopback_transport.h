@@ -1,5 +1,4 @@
-#ifndef LOOPBACK_TRANSPORT_H
-#define LOOPBACK_TRANSPORT_H
+#pragma once
 
 #include "litepb/rpc/transport.h"
 #include <queue>
@@ -53,5 +52,3 @@ private:
     uint64_t pending_src_addr_ = 0;
     uint64_t pending_dst_addr_ = 0;
 };
-
-#endif

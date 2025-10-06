@@ -22,8 +22,7 @@ class CppGenerator:
     def setup_templates(self):
         """Set up Jinja2 templates for code generation."""
         templates = {
-            'header': '''#ifndef {{ header_guard }}
-#define {{ header_guard }}
+            'header': '''#pragma once
 
 #include "litepb/litepb.h"
 #include <string>
@@ -87,8 +86,6 @@ namespace litepb {
 {% endfor %}
 
 }  // namespace litepb
-
-#endif  // {{ header_guard }}
 ''',
             'source': '''#include "litepb/litepb.h"
 #include "{{ include_file }}"
