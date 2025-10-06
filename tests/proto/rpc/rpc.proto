@@ -3,9 +3,8 @@ syntax = "proto3";
 // Package declaration
 package test.packaging.v1;
 
-// Import from another package
-import "enums.proto";
-import "rpc_options.proto";
+// Import RPC options from LitePB
+import "litepb/rpc_options.proto";
 
 // Option for Java package (for reference)
 option java_package = "com.example.test.packaging";
@@ -14,13 +13,21 @@ option java_outer_classname = "PackagingProto";
 // Option for Go package
 option go_package = "example.com/test/packaging/v1;packagingv1";
 
+// Copy of Color enum from enums.proto to remove cross-folder dependency
+enum Color {
+    COLOR_UNSPECIFIED = 0;
+    COLOR_RED = 1;
+    COLOR_GREEN = 2;
+    COLOR_BLUE = 3;
+}
+
 // Message in package
 message PackagedMessage {
     string message_field = 1;
     int32 version = 2;
     
-    // Reference to type from another package
-    test.enums.Color color = 3;
+    // Reference to local Color enum
+    Color color = 3;
 }
 
 // Nested packages simulation through nested messages
@@ -89,14 +96,14 @@ enum PackagedStatus {
 // Complex message with package references
 message ComplexPackagedMessage {
     PackagedMessage local_message = 1;
-    repeated test.enums.Color external_colors = 2;
+    repeated Color external_colors = 2;
     map<string, PackagedStatus> status_map = 3;
     ApiVersion.V2.Request api_request = 4;
     ApiVersion.V2.Response api_response = 5;
 }
 
-// Message with same name as in other package (namespace test)
-message Color {  // Same name as test.enums.Color but in different package
+// Message for RGB color representation (renamed to avoid conflict with enum)
+message RGBColor {
     int32 red = 1;
     int32 green = 2;
     int32 blue = 3;
@@ -105,6 +112,6 @@ message Color {  // Same name as test.enums.Color but in different package
 
 // Using both Color types
 message ColorTest {
-    Color local_color = 1;  // References test.packaging.v1.Color
-    test.enums.Color enum_color = 2;  // References test.enums.Color
+    RGBColor rgb_color = 1;  // References test.packaging.v1.RGBColor
+    Color enum_color = 2;  // References test.packaging.v1.Color enum
 }

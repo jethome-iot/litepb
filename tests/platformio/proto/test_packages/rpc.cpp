@@ -9,9 +9,8 @@ void tearDown() {}
 void test_packaged_message()
 {
     using namespace test::packaging::v1;
-    using test::enums::Color;
 
-    // Create packaged message with cross-package reference
+    // Create packaged message with local Color enum
     PackagedMessage msg;
     msg.message_field = "test message";
     msg.version       = 1;
@@ -89,9 +88,8 @@ void test_packaged_enum()
 void test_complex_packaged_message()
 {
     using namespace test::packaging::v1;
-    using test::enums::Color;
 
-    // Create complex message with multiple package references
+    // Create complex message with local package references
     PackagedMessage local;
     local.message_field = "local";
     local.version       = 2;
@@ -138,19 +136,18 @@ void test_complex_packaged_message()
 void test_color_namespace_disambiguation()
 {
     using namespace test::packaging::v1;
-    using EnumColor = test::enums::Color;
 
-    // Test local Color (message)
-    test::packaging::v1::Color local_color;
-    local_color.red   = 255;
-    local_color.green = 128;
-    local_color.blue  = 64;
-    local_color.alpha = 255;
+    // Test RGBColor (message)
+    test::packaging::v1::RGBColor rgb_color;
+    rgb_color.red   = 255;
+    rgb_color.green = 128;
+    rgb_color.blue  = 64;
+    rgb_color.alpha = 255;
 
     // Test ColorTest which uses both
     ColorTest msg;
-    msg.local_color = local_color;
-    msg.enum_color  = EnumColor::COLOR_GREEN;
+    msg.rgb_color  = rgb_color;
+    msg.enum_color = Color::COLOR_GREEN;
 
     // Serialize
     litepb::BufferOutputStream stream;
@@ -162,12 +159,12 @@ void test_color_namespace_disambiguation()
     ColorTest deserialized;
     TEST_ASSERT_TRUE(litepb::parse(deserialized, input_stream));
 
-    // Verify local color (message field - direct type with implicit scalar fields)
-    TEST_ASSERT_EQUAL_INT32(255, deserialized.local_color.red);
-    TEST_ASSERT_EQUAL_INT32(128, deserialized.local_color.green);
+    // Verify RGB color (message field - direct type with implicit scalar fields)
+    TEST_ASSERT_EQUAL_INT32(255, deserialized.rgb_color.red);
+    TEST_ASSERT_EQUAL_INT32(128, deserialized.rgb_color.green);
 
     // Verify enum color (enum field - direct type)
-    TEST_ASSERT_EQUAL_INT32(static_cast<int32_t>(EnumColor::COLOR_GREEN), static_cast<int32_t>(deserialized.enum_color));
+    TEST_ASSERT_EQUAL_INT32(static_cast<int32_t>(Color::COLOR_GREEN), static_cast<int32_t>(deserialized.enum_color));
 }
 
 int runTests()

@@ -71,8 +71,22 @@ def main():
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    # Automatically add 'proto' folder to include paths if it exists
+    include_paths = args.include.copy()
+    
+    # Try to find proto directory relative to current directory and script directory
+    proto_dirs = [
+        Path.cwd() / 'proto',
+        Path(__file__).parent.parent / 'proto'
+    ]
+    
+    for proto_dir in proto_dirs:
+        if proto_dir.exists() and proto_dir.is_dir():
+            if str(proto_dir) not in include_paths:
+                include_paths.append(str(proto_dir))
+    
     # Initialize parser and generator
-    proto_parser = ProtoParser(import_paths=args.include)
+    proto_parser = ProtoParser(import_paths=include_paths)
     cpp_gen = CppGenerator()
     
     # Process each proto file
