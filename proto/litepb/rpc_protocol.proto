@@ -6,9 +6,9 @@ message RpcMessage {
     // Protocol version for backward compatibility
     uint32 version = 1;         // Currently version 1
     
-    // Service dispatch
-    uint32 service_id = 2;      // Service identifier for multiplexing
-    uint32 method_id = 3;       // Method within the service
+    // Message correlation ID (moved from transport layer)
+    // Used to match requests with responses
+    uint64 msg_id = 2;
     
     // Message semantics
     enum MessageType {
@@ -16,11 +16,11 @@ message RpcMessage {
         RESPONSE = 1;   // Reply to request
         EVENT = 2;      // Fire-and-forget
     }
-    MessageType message_type = 4;
+    MessageType message_type = 3;
     
-    // Message correlation ID (moved from transport layer)
-    // Used to match requests with responses
-    uint64 msg_id = 5;
+    // Service dispatch
+    uint32 service_id = 4;      // Service identifier for multiplexing
+    uint32 method_id = 5;       // Method within the service
     
     // Payload based on message_type
     oneof payload {
