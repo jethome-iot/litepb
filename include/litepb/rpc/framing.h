@@ -1,11 +1,11 @@
 #ifndef LITEPB_RPC_FRAMING_H
 #define LITEPB_RPC_FRAMING_H
 
+#include "litepb/generated/rpc_protocol.pb.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "litepb/generated/rpc_protocol.pb.h"
 
 namespace litepb {
 
@@ -27,7 +27,7 @@ private:
 // Addressing is handled entirely by the transport layer
 struct TransportFrame
 {
-    std::vector<uint8_t> payload;  // Serialized RpcMessage only
+    std::vector<uint8_t> payload; // Serialized RpcMessage only
 };
 
 bool encode_transport_frame(const TransportFrame& frame, OutputStream& output, bool is_stream_transport);

@@ -44,7 +44,7 @@ public:
         // Store metadata for recv
         peer_->last_src_addr_ = src_addr;
         peer_->last_dst_addr_ = dst_addr;
-        peer_->last_msg_id_ = msg_id;
+        peer_->last_msg_id_   = msg_id;
 
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
@@ -57,7 +57,7 @@ public:
         // Return stored metadata
         src_addr = last_src_addr_;
         dst_addr = last_dst_addr_;
-        msg_id = last_msg_id_;
+        msg_id   = last_msg_id_;
 
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
@@ -72,7 +72,7 @@ public:
     std::queue<uint8_t> rx_queue_;
     uint64_t last_src_addr_ = 0;
     uint64_t last_dst_addr_ = 0;
-    uint16_t last_msg_id_ = 0;
+    uint16_t last_msg_id_   = 0;
 
 private:
     LoopbackTransport* peer_;
@@ -146,8 +146,8 @@ void test_rpc_error_propagation_basic()
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::TRANSPORT_ERROR;
-            result.value.value    = req.value;
+            result.error.code  = litepb::RpcError::TRANSPORT_ERROR;
+            result.value.value = req.value;
             return result;
         });
 
@@ -179,12 +179,8 @@ void test_rpc_error_propagation_various_codes()
     litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
     litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
 
-    litepb::RpcError::Code test_error_codes[] = { 
-        litepb::RpcError::TIMEOUT, 
-        litepb::RpcError::PARSE_ERROR, 
-        litepb::RpcError::TRANSPORT_ERROR,
-        litepb::RpcError::HANDLER_NOT_FOUND 
-    };
+    litepb::RpcError::Code test_error_codes[] = { litepb::RpcError::TIMEOUT, litepb::RpcError::PARSE_ERROR,
+                                                  litepb::RpcError::TRANSPORT_ERROR, litepb::RpcError::HANDLER_NOT_FOUND };
 
     for (size_t i = 0; i < sizeof(test_error_codes) / sizeof(test_error_codes[0]); ++i) {
         litepb::RpcError::Code expected_error_code = test_error_codes[i];
@@ -196,8 +192,8 @@ void test_rpc_error_propagation_various_codes()
             1, i + 1, [expected_error_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
                 (void) src_addr;
                 litepb::Result<SimpleMessage> result;
-                result.error.code     = expected_error_code;
-                result.value.value    = req.value;
+                result.error.code  = expected_error_code;
+                result.value.value = req.value;
                 return result;
             });
 
@@ -249,8 +245,8 @@ void test_timeout_overrides_server_error()
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::TRANSPORT_ERROR;
-            result.value.value    = req.value;
+            result.error.code  = litepb::RpcError::TRANSPORT_ERROR;
+            result.value.value = req.value;
             return result;
         });
 
@@ -292,8 +288,8 @@ void test_multi_service_error_isolation()
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::TRANSPORT_ERROR;
-            result.value.value    = req.value;
+            result.error.code  = litepb::RpcError::TRANSPORT_ERROR;
+            result.value.value = req.value;
             return result;
         });
 
@@ -301,8 +297,8 @@ void test_multi_service_error_isolation()
         2, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
-            result.error.code     = litepb::RpcError::OK;
-            result.value.value    = req.value * 2;
+            result.error.code  = litepb::RpcError::OK;
+            result.value.value = req.value * 2;
             return result;
         });
 

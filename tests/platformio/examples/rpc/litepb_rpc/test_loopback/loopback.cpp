@@ -14,10 +14,10 @@ void test_loopback_send_recv_basic()
     transport2.connect_to_peer(&transport1);
 
     const uint8_t send_data[] = { 0x01, 0x02, 0x03, 0x04 };
-    uint64_t src_addr = 1;
-    uint64_t dst_addr = 2;
-    uint16_t msg_id = 123;
-    bool send_result = transport1.send(send_data, 4, src_addr, dst_addr, msg_id);
+    uint64_t src_addr         = 1;
+    uint64_t dst_addr         = 2;
+    uint16_t msg_id           = 123;
+    bool send_result          = transport1.send(send_data, 4, src_addr, dst_addr, msg_id);
 
     TEST_ASSERT_TRUE(send_result);
     TEST_ASSERT_TRUE(transport2.available());

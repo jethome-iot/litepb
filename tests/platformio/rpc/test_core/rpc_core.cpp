@@ -23,8 +23,8 @@ public:
         // Store metadata for recv
         peer_->last_src_addr_ = src_addr;
         peer_->last_dst_addr_ = dst_addr;
-        peer_->last_msg_id_ = msg_id;
-        
+        peer_->last_msg_id_   = msg_id;
+
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
         }
@@ -38,12 +38,12 @@ public:
             buffer[count++] = rx_queue_.front();
             rx_queue_.pop();
         }
-        
+
         // Return stored metadata
         src_addr = last_src_addr_;
         dst_addr = last_dst_addr_;
-        msg_id = last_msg_id_;
-        
+        msg_id   = last_msg_id_;
+
         return count;
     }
 
@@ -52,7 +52,7 @@ public:
     std::queue<uint8_t> rx_queue_;
     uint64_t last_src_addr_ = 0;
     uint64_t last_dst_addr_ = 0;
-    uint16_t last_msg_id_ = 0;
+    uint16_t last_msg_id_   = 0;
 
 private:
     LoopbackTransport* peer_;

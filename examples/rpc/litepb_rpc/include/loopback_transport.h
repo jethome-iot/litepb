@@ -21,8 +21,8 @@ public:
         // Store the addressing information
         peer_->pending_src_addr_ = src_addr;
         peer_->pending_dst_addr_ = dst_addr;
-        peer_->pending_msg_id_ = msg_id;
-        
+        peer_->pending_msg_id_   = msg_id;
+
         // Queue the data
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
@@ -35,8 +35,8 @@ public:
         // Return the addressing information
         src_addr = pending_src_addr_;
         dst_addr = pending_dst_addr_;
-        msg_id = pending_msg_id_;
-        
+        msg_id   = pending_msg_id_;
+
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
             buffer[count++] = rx_queue_.front();
@@ -50,11 +50,11 @@ public:
 private:
     LoopbackTransport* peer_;
     std::queue<uint8_t> rx_queue_;
-    
+
     // Store addressing for the current message
     uint64_t pending_src_addr_ = 0;
     uint64_t pending_dst_addr_ = 0;
-    uint16_t pending_msg_id_ = 0;
+    uint16_t pending_msg_id_   = 0;
 };
 
 #endif

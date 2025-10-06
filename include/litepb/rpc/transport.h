@@ -32,7 +32,7 @@ public:
      * @brief Send raw bytes over the transport with addressing
      *
      * Attempts to transmit the provided data buffer with transport-level addressing.
-     * For stream-based transports (UART, TCP), this may send partial data. 
+     * For stream-based transports (UART, TCP), this may send partial data.
      * For packet-based transports (UDP, LoRa), this should send the complete buffer or fail.
      *
      * @param data Pointer to buffer containing bytes to send

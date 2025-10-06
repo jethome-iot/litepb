@@ -236,7 +236,7 @@ void test_invalid_sensor_ids()
     RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
     RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
 
-    bool callback_called      = false;
+    bool callback_called         = false;
     SensorStatus received_status = SensorStatus::OK;
 
     peer_b_channel.on_internal<ReadingRequest, ReadingResponse>(
@@ -248,8 +248,8 @@ void test_invalid_sensor_ids()
                 // Return application-specific error through the response data
                 result.value.sensor_id   = req.sensor_id;
                 result.value.temperature = 0.0f;
-                result.value.status      = SensorStatus::ERROR;  // Use application error status
-                result.error.code        = RpcError::OK;  // RPC itself succeeded
+                result.value.status      = SensorStatus::ERROR; // Use application error status
+                result.error.code        = RpcError::OK;        // RPC itself succeeded
             }
             else {
                 result.value.sensor_id   = req.sensor_id;
@@ -267,7 +267,7 @@ void test_invalid_sensor_ids()
     peer_a_channel.call_internal<ReadingRequest, ReadingResponse>(
         1, 1, request, [&callback_called, &received_status](const Result<ReadingResponse>& result) {
             callback_called = true;
-            TEST_ASSERT_TRUE(result.ok());  // RPC should succeed
+            TEST_ASSERT_TRUE(result.ok()); // RPC should succeed
             received_status = result.value.status;
         });
 
