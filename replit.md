@@ -106,11 +106,69 @@ All C++ code follows strict formatting rules enforced by clang-format:
 - **Auto-Generation**: All test environments generate `rpc_protocol.pb.h` automatically
 - **Include Path**: Generated files are accessible via `litepb/generated/` include path
 
-### Testing GitHub Actions Locally
-- **Tool**: Use `act` to test GitHub Actions workflows locally
-- **Installation**: `brew install act` (macOS) or see [act documentation](https://github.com/nektos/act)
-- **Usage**: Run `act` in the repository root to execute CI workflows locally
-- **Benefits**: Test CI changes without pushing to GitHub, faster iteration on workflow fixes
+### Testing GitHub Actions Locally with act
+
+**Tool Overview:**
+- **act**: A tool for running GitHub Actions workflows locally (version 0.2.77 installed)
+- **Purpose**: Analyze and validate GitHub Actions workflows without pushing to GitHub
+- **Installation**: Already installed in this Replit environment
+
+**Capabilities in Replit Environment:**
+While act cannot execute workflows due to Docker limitations in Replit, it remains highly useful for:
+- Workflow structure analysis and validation
+- Dependency visualization between jobs
+- Event-based job filtering
+- Syntax checking of workflow files
+
+**Useful Commands:**
+
+```bash
+# List all workflows and jobs
+act --list
+
+# Show workflow dependencies as a visual graph
+act --graph
+
+# List jobs for specific events
+act push --list        # Jobs triggered by push events
+act pull_request --list  # Jobs triggered by pull requests
+act workflow_dispatch --list  # Manual workflow jobs
+
+# Analyze specific jobs
+act -j format-check --list  # Show details for the format-check job
+act -j test --list          # Show details for the test job
+
+# Dry-run mode (validates without execution)
+act --dryrun --list
+
+# Check act version
+act --version
+```
+
+**Example Output:**
+
+The project has two workflow files with the following structure:
+- `ci.yml`: Main CI pipeline with 6 jobs (prepare → format-check, test, test-interop, build-examples, coverage)
+- `build-docker.yml`: Docker image building workflow
+
+Workflow dependency graph shows:
+```
+Prepare Environment
+        ⬇
+Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
+```
+
+**Limitations in Replit:**
+- **No Docker Support**: act displays warning "Couldn't get a valid docker connection"
+- **No Workflow Execution**: Cannot actually run the workflows, only analyze them
+- **Analysis Only**: Limited to listing, graphing, and validating workflow structure
+
+**Benefits Despite Limitations:**
+- Quickly identify all available workflows and jobs
+- Understand job dependencies and execution order
+- Filter jobs by event type (push, pull_request, workflow_dispatch)
+- Validate workflow syntax before pushing to GitHub
+- Useful for debugging workflow configuration issues
 
 
 ## Current Status
