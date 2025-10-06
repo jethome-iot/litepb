@@ -4,7 +4,7 @@
 #include "litepb/core/proto_reader.h"
 #include "litepb/core/proto_writer.h"
 #include "litepb/core/streams.h"
-#include "litepb/generated/rpc_protocol.pb.h"
+#include "rpc_protocol.pb.h"
 #include "litepb/litepb.h"
 #include "litepb/rpc/addressing.h"
 #include "litepb/rpc/error.h"

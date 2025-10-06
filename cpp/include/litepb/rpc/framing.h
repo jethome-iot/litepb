@@ -1,7 +1,7 @@
 #ifndef LITEPB_RPC_FRAMING_H
 #define LITEPB_RPC_FRAMING_H
 
-#include "litepb/generated/rpc_protocol.pb.h"
+#include "rpc_protocol.pb.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>

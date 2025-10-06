@@ -200,8 +200,9 @@ def setup_compiler_paths(env: Any, output_dir: Path) -> None:
         env: PlatformIO environment object
         output_dir: Directory containing generated code
     """
-    env.Append(CPPFLAGS=[f"-I{output_dir}"])
-    env.Append(CPPPATH=str(output_dir))
+    # Add the generated directory to include paths
+    # This allows including generated files without the full path
+    env.Append(CPPPATH=[str(output_dir)])
 
 
 def generate_all_protos(config: GeneratorConfig, generator_path: Path) -> None:
