@@ -65,7 +65,7 @@ mkdir -p "${GCOV_DIR}"
 mkdir -p "${COVERAGE_DIR}"
 
 # Find gcov efficiently - check if it's in PATH first, then look in nix store
-GCOV_TOOL=$(which gcov 2>/dev/null)
+GCOV_TOOL=$(which gcov 2>/dev/null || true)
 
 if [ -z "$GCOV_TOOL" ]; then
     # In Nix, gcov is in the gcc package (not gcc-wrapper)
