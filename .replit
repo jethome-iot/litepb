@@ -69,4 +69,4 @@ args = "cd examples/cpp/rpc/litepb_rpc && pio run -e litepb_rpc && .pio/build/li
 
 [nix]
 channel = "stable-25_05"
-packages = ["protobuf", "clang-tools", "gdb", "valgrind", "cmake", "abseil-cpp", "pkg-config", "lcov", "gcc", "gcovr", "gh", "act"]
+packages = ["protobuf", "clang-tools", "gdb", "valgrind", "cmake", "abseil-cpp", "pkg-config", "lcov", "gcc", "gcovr", "gh", "act", "mc"]
