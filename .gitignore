@@ -34,3 +34,8 @@ tmp/
 
 # Replit assets
 attached_assets/
+
+# ESP-IDF
+CMakeLists.txt
+cpp/src/CMakeLists.txt
+sdkconfig.*
