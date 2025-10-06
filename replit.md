@@ -11,8 +11,8 @@ Communication style: Simple, everyday language
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 
 ## System Architecture
-- **Build System**: PlatformIO with consistent workflow between local development and CI/CD
-- **RPC System**: Clean layer separation - transport handles addressing (src/dst), RPC protocol handles message correlation (msg_id) and protocol logic
+- **Build System**: PlatformIO with centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include)
+- **RPC System**: Optional feature via `custom_litepb_use_rpc` configuration option; clean layer separation with transport handling addressing (src/dst), RPC protocol handling message correlation (msg_id)
 - **Error Handling**: Two-layer system with RPC-layer errors and application-specific error codes
 - **Serialization**: Wire format compatible with standard Protocol Buffers including zigzag encoding, packed repeated fields, and map field serialization
 - **Code Style**: Enforced via clang-format (4-space indentation, left-aligned pointers, 132-character column limit)
