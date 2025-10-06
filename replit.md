@@ -201,6 +201,8 @@ Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
 - **Explicit Message Types**: REQUEST, RESPONSE, EVENT replacing magic values
 - **Error Separation**: RPC errors (timeout, transport) vs application errors
 - **All Tests Passing**: 260/260 test cases successful with new field numbering
+- **Conditional Compilation**: RPC functionality is optional via `LITEPB_WITH_RPC` macro, excluded when not needed for smaller binary size
+- **Simplified Includes**: Generated files use simplified include paths (e.g., `"rpc_protocol.pb.h"` instead of `"litepb/generated/rpc_protocol.pb.h"`)
 
 ### Library Manifest
 - **library.json**: PlatformIO-compliant manifest with schema validation, proper keywords array, examples listing, and export rules
@@ -211,9 +213,11 @@ Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
 - **Basic Example** (`examples/serialization/basic/`): Person message demo, 36-byte serialization
 - **All Types Example** (`examples/serialization/all_types/`): Comprehensive protobuf types showcase, 335-byte serialization
 
-### Test Coverage
+### Test Organization
+- **Test Structure**: Test directories align with proto organization (serialization/, rpc/, core/)
+- **RPC Tests**: Located in `tests/cpp/platformio/rpc/` including test_packages (proto namespacing tests)
+- **Serialization Tests**: Located in `tests/cpp/platformio/serialization/` for protobuf encoding/decoding tests
 - **Coverage Reports**: Generated in `tmp/coverage/` directory structure
-- **Report Organization**: Separate directories for core and RPC coverage analysis
 - **Comprehensive Test Suite**: Full coverage across core functionality, protocol features, and RPC implementation
 
 ### CI/CD
