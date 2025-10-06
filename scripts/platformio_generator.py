@@ -7,25 +7,31 @@ to the build directory.
 
 Configuration in platformio.ini:
     custom_litepb_protos = path/to/file.proto path/to/other.proto
+    custom_litepb_protos = tests/proto/**/*.proto  # Glob patterns supported
     custom_litepb_include_dirs = include/path1 include/path2
+    custom_litepb_use_rpc = true  # Enable RPC support
 """
 
 from __future__ import annotations
 
 Import("env")  # PlatformIO environment injection - must be first line
 
-# Try to import projenv for global environment access
-try:
-    Import("projenv")
-except:
-    projenv = None
-
+import glob
 import logging
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+# Module-level constants
+LITEPB_DIR_NAME = "litepb"
+GENERATED_DIR_NAME = "generated"
+GENERATOR_SCRIPT_NAME = "litepb_gen"
+RPC_PROTO_FILES = ["rpc_protocol.proto", "rpc_options.proto"]
+RPC_PREPROCESSOR_DEFINE = "LITEPB_WITH_RPC"
+PROTO_SUBDIR = "proto/litepb"
+TRUE_VALUES = ["true", "yes", "1", "on"]
 
 # Configure logging
 logging.basicConfig(
@@ -49,78 +55,127 @@ class GeneratorConfig:
         Args:
             env: PlatformIO environment object
         """
+        self._env = env
+        
+        # Try to import projenv for global environment access
+        try:
+            Import("projenv")
+            self._projenv = projenv
+        except:
+            self._projenv = None
+        
         self.project_dir = Path(env.subst("$PROJECT_DIR"))
         self.build_dir = Path(env.subst("$BUILD_DIR"))
-        self.output_dir = self.build_dir / "litepb" / "generated"
+        self.output_dir = self.build_dir / LITEPB_DIR_NAME / GENERATED_DIR_NAME
 
-        # Get custom options from platformio.ini
-        protos_str = env.subst(env.GetProjectOption("custom_litepb_protos", ""))
-        self.proto_files = [
-            self.project_dir / proto for proto in protos_str.split() if proto
-        ]
+        # Process proto files with glob support
+        self.proto_files = self._process_proto_files()
 
-        # Check if RPC support is enabled
-        use_rpc = False
-        
-        # First check if LITEPB_WITH_RPC is already defined (might be passed from parent project)
-        if "LITEPB_WITH_RPC" in env.get("CPPDEFINES", []):
-            use_rpc = True
-        else:
-            # Try to get from project options
-            try:
-                use_rpc_str = env.subst(env.GetProjectOption("custom_litepb_use_rpc", "false"))
-                use_rpc = use_rpc_str.lower() in ["true", "yes", "1", "on"]
-            except:
-                # GetProjectOption might fail when building as a library dependency
-                # In that case, check if we're in an RPC example by looking at the project path
-                if "rpc" in str(self.project_dir).lower():
-                    use_rpc = True
-        
-        # Add RPC protocol protos if enabled
-        if use_rpc:
-            # Add LITEPB_WITH_RPC preprocessor definition to current environment
-            if "LITEPB_WITH_RPC" not in env.get("CPPDEFINES", []):
-                env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
-            
-            # Also add to project environment if available (for library builds)
-            global projenv
-            if projenv is not None and "LITEPB_WITH_RPC" not in projenv.get("CPPDEFINES", []):
-                projenv.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
-            
-            # Try to find the RPC protos in multiple locations
-            # (handle both main project and example project structures)
-            possible_paths = [
-                self.project_dir / "proto" / "litepb",  # Main project
-                self.project_dir / ".." / ".." / ".." / ".." / "proto" / "litepb",  # Example project
-            ]
-            
-            rpc_proto_names = ["rpc_protocol.proto", "rpc_options.proto"]
-            
-            for base_path in possible_paths:
-                if base_path.exists():
-                    for proto_name in rpc_proto_names:
-                        rpc_proto = base_path / proto_name
-                        if rpc_proto.exists() and rpc_proto not in self.proto_files:
-                            self.proto_files.append(rpc_proto)
-                    # If we found the protos, stop searching
-                    if any((base_path / name).exists() for name in rpc_proto_names):
-                        break
-
+        # Process include directories
         includes_str = env.subst(env.GetProjectOption("custom_litepb_include_dirs", ""))
         self.include_dirs = [
             self.project_dir / inc for inc in includes_str.split() if inc
         ]
 
-        self.env = env
+        # Handle RPC support
+        if self._detect_rpc_enabled():
+            self._add_rpc_support()
+            self._add_rpc_protos()
+
+    def _process_proto_files(self) -> list[Path]:
+        """Process proto file specifications with glob support.
+        
+        Returns:
+            List of resolved proto file paths
+        """
+        proto_files = []
+        protos_str = self._env.subst(self._env.GetProjectOption("custom_litepb_protos", ""))
+        
+        for proto_spec in protos_str.split():
+            if not proto_spec:
+                continue
+                
+            # Check if this is a glob pattern
+            if any(char in proto_spec for char in ['*', '?', '[']):
+                # Expand glob pattern relative to project directory
+                pattern_path = self.project_dir / proto_spec
+                matched_files = glob.glob(str(pattern_path), recursive=True)
+                
+                if matched_files:
+                    logger.info(f"Glob pattern '{proto_spec}' matched {len(matched_files)} files")
+                    proto_files.extend(Path(f) for f in matched_files)
+                else:
+                    logger.warning(f"Glob pattern '{proto_spec}' matched no files")
+            else:
+                # Regular file path
+                proto_files.append(self.project_dir / proto_spec)
+        
+        return proto_files
+
+    def _detect_rpc_enabled(self) -> bool:
+        """Detect if RPC support should be enabled.
+        
+        Returns:
+            True if RPC support should be enabled
+        """
+        # First check if LITEPB_WITH_RPC is already defined
+        if RPC_PREPROCESSOR_DEFINE in self._env.get("CPPDEFINES", []):
+            return True
+        
+        # Check if custom_litepb_use_rpc is set to true
+        try:
+            use_rpc_str = self._env.subst(
+                self._env.GetProjectOption("custom_litepb_use_rpc", "false")
+            )
+            return use_rpc_str.lower() in TRUE_VALUES
+        except:
+            # GetProjectOption might fail when building as a library dependency
+            # In that case, check if we're in an RPC example by looking at the project path
+            return "rpc" in str(self.project_dir).lower()
+
+    def _add_rpc_support(self) -> None:
+        """Add RPC preprocessor definitions to the environments."""
+        # Add to current environment
+        if RPC_PREPROCESSOR_DEFINE not in self._env.get("CPPDEFINES", []):
+            self._env.Append(CPPDEFINES=[RPC_PREPROCESSOR_DEFINE])
+        
+        # Add to project environment if available (for library builds)
+        if self._projenv is not None:
+            if RPC_PREPROCESSOR_DEFINE not in self._projenv.get("CPPDEFINES", []):
+                self._projenv.Append(CPPDEFINES=[RPC_PREPROCESSOR_DEFINE])
+
+    def _add_rpc_protos(self) -> None:
+        """Add RPC protocol proto files to the list of files to generate."""
+        # Try to find the RPC protos in multiple locations
+        possible_paths = [
+            self.project_dir / PROTO_SUBDIR,  # Main project
+            self.project_dir.parent.parent.parent.parent / PROTO_SUBDIR,  # Example project
+        ]
+        
+        for base_path in possible_paths:
+            if base_path.exists():
+                for proto_name in RPC_PROTO_FILES:
+                    rpc_proto = base_path / proto_name
+                    if rpc_proto.exists() and rpc_proto not in self.proto_files:
+                        self.proto_files.append(rpc_proto)
+                
+                # If we found the protos, stop searching
+                if any((base_path / name).exists() for name in RPC_PROTO_FILES):
+                    break
+
+    @property
+    def env(self) -> Any:
+        """Get the PlatformIO environment object."""
+        return self._env
 
 
 def find_generator_path(env: Any, project_dir: Path) -> Path:
     """Locate the litepb_gen generator script.
 
     Searches in multiple locations:
-    1. Library dependencies (when LitePB is used as lib_deps)
+    1. Library directories (when LitePB is used as lib_deps)
     2. Project directory
-    3. Relative paths for examples
+    3. Parent directories for nested projects
 
     Args:
         env: PlatformIO environment object
@@ -134,26 +189,29 @@ def find_generator_path(env: Any, project_dir: Path) -> Path:
     """
     search_paths: list[Path] = []
 
-    # Check if LitePB is used as a library dependency
-    for lib in env.get("LIB", []):
-        lib_path = None
-        if hasattr(lib, "path") and "litepb" in lib.path.lower():
-            lib_path = Path(lib.path)
-        elif hasattr(lib, "get_dir"):
-            lib_dir = lib.get_dir()
-            if "litepb" in lib_dir.lower():
-                lib_path = Path(lib_dir)
+    # Check library directories from LIBSOURCE_DIRS
+    lib_dirs = env.get("LIBSOURCE_DIRS", [])
+    for lib_dir in lib_dirs:
+        lib_path = Path(lib_dir)
+        if lib_path.exists():
+            # Look for litepb libraries
+            for subdir in lib_path.iterdir():
+                if subdir.is_dir() and LITEPB_DIR_NAME in subdir.name.lower():
+                    search_paths.append(subdir / GENERATOR_SCRIPT_NAME)
 
-        if lib_path:
-            search_paths.append(lib_path / "litepb_gen")
-
-    # Add additional search locations
-    search_paths.extend([
-        project_dir / "litepb_gen",
-        project_dir / ".." / ".." / ".." / "litepb_gen",  # For examples at old location
-        project_dir / ".." / ".." / ".." / ".." / "litepb_gen",  # For examples at new cpp location
-        Path("litepb_gen").absolute(),
-    ])
+    # Add project directory
+    search_paths.append(project_dir / GENERATOR_SCRIPT_NAME)
+    
+    # Add parent directories for nested projects
+    current = project_dir
+    for _ in range(4):  # Check up to 4 levels up
+        current = current.parent
+        if current == current.parent:  # Reached root
+            break
+        search_paths.append(current / GENERATOR_SCRIPT_NAME)
+    
+    # Also check if it's in PATH (absolute path)
+    search_paths.append(Path(GENERATOR_SCRIPT_NAME).resolve())
 
     # Find first existing generator
     for path in search_paths:
@@ -161,7 +219,7 @@ def find_generator_path(env: Any, project_dir: Path) -> Path:
             return path
 
     raise GeneratorError(
-        "Could not find litepb_gen generator script. "
+        f"Could not find {GENERATOR_SCRIPT_NAME} generator script. "
         f"Searched in: {', '.join(str(p) for p in search_paths)}"
     )
 
@@ -250,7 +308,12 @@ def generate_all_protos(config: GeneratorConfig, generator_path: Path) -> None:
     # Log the proto files that will be generated
     logger.info(f"Proto files to generate: {len(config.proto_files)}")
     for proto in config.proto_files:
-        logger.info(f"  - {proto.relative_to(config.project_dir) if proto.is_absolute() else proto}")
+        try:
+            relative_path = proto.relative_to(config.project_dir)
+            logger.info(f"  - {relative_path}")
+        except ValueError:
+            # Proto file is outside project directory, show absolute path
+            logger.info(f"  - {proto}")
 
     clean_output_directory(config.output_dir)
     setup_compiler_paths(config.env, config.output_dir)
@@ -276,15 +339,20 @@ def main(build_env: Any) -> None:
     
     # Additional check: If we're building the library and the parent project needs RPC,
     # ensure LITEPB_WITH_RPC is defined for library compilation
-    global projenv
-    if projenv is not None:
+    try:
+        Import("projenv")
+        parent_projenv = projenv
+    except:
+        parent_projenv = None
+    
+    if parent_projenv is not None:
         # Check if the parent project has RPC enabled
         try:
-            parent_rpc = projenv.GetProjectOption("custom_litepb_use_rpc", "false")
-            if parent_rpc.lower() in ["true", "yes", "1", "on"]:
+            parent_rpc = parent_projenv.GetProjectOption("custom_litepb_use_rpc", "false")
+            if parent_rpc.lower() in TRUE_VALUES:
                 # Ensure library gets compiled with RPC support
-                if "LITEPB_WITH_RPC" not in build_env.get("CPPDEFINES", []):
-                    build_env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
+                if RPC_PREPROCESSOR_DEFINE not in build_env.get("CPPDEFINES", []):
+                    build_env.Append(CPPDEFINES=[RPC_PREPROCESSOR_DEFINE])
         except:
             pass
 
