@@ -239,25 +239,27 @@ def clean_output_directory(output_dir: Path) -> None:
         output_dir.mkdir(parents=True)
 
 
-def generate_proto_file(
+def generate_proto_files(
     generator_path: Path,
-    proto_file: Path,
+    proto_files: list[Path],
     output_dir: Path,
     include_dirs: list[Path],
 ) -> None:
-    """Generate C++ code from a single proto file.
+    """Generate C++ code from multiple proto files in a single invocation.
 
     Args:
         generator_path: Path to litepb_gen generator
-        proto_file: Proto file to process
+        proto_files: List of proto files to process
         output_dir: Directory for generated code
         include_dirs: Additional include directories for imports
 
     Raises:
-        GeneratorError: If proto file doesn't exist or generation fails
+        GeneratorError: If any proto file doesn't exist or generation fails
     """
-    if not proto_file.exists():
-        raise GeneratorError(f"Proto file does not exist: {proto_file}")
+    # Validate all proto files exist before processing
+    for proto_file in proto_files:
+        if not proto_file.exists():
+            raise GeneratorError(f"Proto file does not exist: {proto_file}")
 
     # Build command with include arguments
     cmd = [str(generator_path)]
@@ -267,14 +269,17 @@ def generate_proto_file(
             logger.warning(f"Include directory does not exist: {inc_dir}")
         cmd.extend(["-I", str(inc_dir)])
 
-    cmd.extend(["-o", str(output_dir), str(proto_file)])
+    cmd.extend(["-o", str(output_dir)])
+    
+    # Add all proto files to the command
+    cmd.extend(str(proto_file) for proto_file in proto_files)
 
     logger.info(f"Running command: {' '.join(cmd)}")
 
     result = subprocess.run(cmd, capture_output=False)
     if result.returncode != 0:
         raise GeneratorError(
-            f"Code generation failed for {proto_file.name} "
+            f"Code generation failed for proto files "
             f"(exit code: {result.returncode})"
         )
 
@@ -318,13 +323,13 @@ def generate_all_protos(config: GeneratorConfig, generator_path: Path) -> None:
     clean_output_directory(config.output_dir)
     setup_compiler_paths(config.env, config.output_dir)
 
-    for proto_file in config.proto_files:
-        generate_proto_file(
-            generator_path,
-            proto_file,
-            config.output_dir,
-            config.include_dirs,
-        )
+    # Batch process all proto files in a single invocation
+    generate_proto_files(
+        generator_path,
+        config.proto_files,
+        config.output_dir,
+        config.include_dirs,
+    )
 
 
 def main(build_env: Any) -> None:
