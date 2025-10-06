@@ -8,6 +8,7 @@ Communication style: Simple, everyday language
 
 **Development Practices:**
 - Always set executable permissions (+x) for all scripts in `scripts/**/*.{sh,py}`
+- To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 
 ## System Architecture
 - **Build System**: PlatformIO with consistent workflow between local development and CI/CD
