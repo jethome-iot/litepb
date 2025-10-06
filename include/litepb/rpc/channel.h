@@ -9,7 +9,7 @@
 #include "litepb/rpc/error.h"
 #include "litepb/rpc/framing.h"
 #include "litepb/rpc/transport.h"
-#include "../../proto/rpc_protocol.pb.h"
+#include "litepb/generated/rpc_protocol.pb.h"
 #include <cstdint>
 #include <functional>
 #include <string>

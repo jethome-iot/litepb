@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "../../proto/rpc_protocol.pb.h"
+#include "litepb/generated/rpc_protocol.pb.h"
 
 namespace litepb {
 
