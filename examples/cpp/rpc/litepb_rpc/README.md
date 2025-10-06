@@ -633,4 +633,4 @@ channel.get_stats();
 ## License
 
 This example is part of LitePB and is released under the MIT License.
-Copyright (c) 2024 JetHome LLC
+Copyright (c) 2025 JetHome LLC

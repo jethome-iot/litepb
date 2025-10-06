@@ -6,7 +6,7 @@
  * and the transport layer. It handles message boundaries for stream transports,
  * message ID generation for request/response correlation, and frame encoding/decoding.
  * 
- * @copyright Copyright (c) 2024 JetHome LLC
+ * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  */
 

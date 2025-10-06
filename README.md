@@ -362,7 +362,7 @@ The RPC framework provides a complete solution for remote procedure calls:
 - **Error Handling** - Comprehensive error reporting
 - **Async Operations** - Non-blocking, callback-based API
 
-For detailed RPC documentation, see [docs/rpc.md](docs/rpc.md).
+For detailed RPC documentation, see [docs/RPC.md](docs/RPC.md).
 
 ## Examples
 
@@ -431,7 +431,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 LitePB is released under the MIT License. See [LICENSE](LICENSE) for details.
 
-Copyright (c) 2024 JetHome LLC
+Copyright (c) 2025 JetHome LLC
 
 ## Support
 

@@ -9,7 +9,7 @@
  * The writer handles all Protocol Buffers encoding rules including zigzag encoding
  * for signed integers and proper field tag generation.
  * 
- * @copyright Copyright (c) 2024 JetHome LLC
+ * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  */
 

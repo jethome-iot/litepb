@@ -9,7 +9,7 @@
  * The stream abstraction allows LitePB to work with various data sources and
  * destinations including memory, files, network sockets, or custom hardware interfaces.
  * 
- * @copyright Copyright (c) 2024 JetHome LLC
+ * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  */
 

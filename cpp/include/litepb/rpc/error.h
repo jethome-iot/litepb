@@ -6,7 +6,7 @@
  * It provides error codes for protocol-level issues and a Result type for
  * combining return values with error status.
  * 
- * @copyright Copyright (c) 2024 JetHome LLC
+ * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  */
 

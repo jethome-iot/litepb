@@ -6,7 +6,7 @@
  * The RPC layer supports flexible addressing modes including direct addressing,
  * broadcast messages, and wildcard listeners.
  * 
- * @copyright Copyright (c) 2024 JetHome LLC
+ * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  */
 

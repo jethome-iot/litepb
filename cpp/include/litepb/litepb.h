@@ -6,7 +6,7 @@
  * and native platforms. This header defines the core serialization API that works
  * with generated code to provide type-safe, efficient message encoding and decoding.
  * 
- * @copyright Copyright (c) 2024 JetHome LLC
+ * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  * 
  * @example Basic Serialization
