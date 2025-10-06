@@ -189,6 +189,11 @@ Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
 
 ## Current Status
 
+### Header Guards
+- **All headers now use `#pragma once`** - Replaced traditional include guards across entire codebase
+- **Code generator updated** - generator_cpp.py now generates #pragma once instead of #ifndef/#define/#endif
+- **Modernized approach** - Simpler, less error-prone, supported by all modern compilers
+
 ### RPC Protocol (Version 1)
 - **Protobuf-based Protocol**: RpcMessage with protocol versioning for backward compatibility
 - **Clean Layer Separation**: Transport handles addressing (src/dst), RPC handles protocol including msg_id
