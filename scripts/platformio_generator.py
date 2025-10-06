@@ -53,6 +53,31 @@ class GeneratorConfig:
             self.project_dir / proto for proto in protos_str.split() if proto
         ]
 
+        # Check if RPC support is enabled
+        use_rpc_str = env.subst(env.GetProjectOption("custom_litepb_use_rpc", "false"))
+        use_rpc = use_rpc_str.lower() in ["true", "yes", "1", "on"]
+        
+        # Add RPC protocol protos if enabled
+        if use_rpc:
+            # Try to find the RPC protos in multiple locations
+            # (handle both main project and example project structures)
+            possible_paths = [
+                self.project_dir / "proto" / "litepb",  # Main project
+                self.project_dir / ".." / ".." / ".." / ".." / "proto" / "litepb",  # Example project
+            ]
+            
+            rpc_proto_names = ["rpc_protocol.proto", "rpc_options.proto"]
+            
+            for base_path in possible_paths:
+                if base_path.exists():
+                    for proto_name in rpc_proto_names:
+                        rpc_proto = base_path / proto_name
+                        if rpc_proto.exists() and rpc_proto not in self.proto_files:
+                            self.proto_files.append(rpc_proto)
+                    # If we found the protos, stop searching
+                    if any((base_path / name).exists() for name in rpc_proto_names):
+                        break
+
         includes_str = env.subst(env.GetProjectOption("custom_litepb_include_dirs", ""))
         self.include_dirs = [
             self.project_dir / inc for inc in includes_str.split() if inc
@@ -193,6 +218,11 @@ def generate_all_protos(config: GeneratorConfig, generator_path: Path) -> None:
         logger.info("No proto files specified for generation.")
         return
 
+    # Log the proto files that will be generated
+    logger.info(f"Proto files to generate: {len(config.proto_files)}")
+    for proto in config.proto_files:
+        logger.info(f"  - {proto.relative_to(config.project_dir) if proto.is_absolute() else proto}")
+
     clean_output_directory(config.output_dir)
     setup_compiler_paths(config.env, config.output_dir)
 
@@ -205,15 +235,19 @@ def generate_all_protos(config: GeneratorConfig, generator_path: Path) -> None:
         )
 
 
-def main() -> None:
-    """Main entry point for the code generation script."""
+def main(build_env: Any) -> None:
+    """Main entry point for the code generation script.
+    
+    Args:
+        build_env: PlatformIO environment object
+    """
     logger.info("=" * 38)
     logger.info("LitePB code generation script started")
     logger.info("=" * 38)
 
     try:
-        config = GeneratorConfig(env)
-        generator_path = find_generator_path(env, config.project_dir)
+        config = GeneratorConfig(build_env)
+        generator_path = find_generator_path(build_env, config.project_dir)
 
         logger.info(f"project_dir         : {config.project_dir}")
         logger.info(f"build_dir           : {config.build_dir}")
@@ -236,7 +270,7 @@ def main() -> None:
 
 # Execute main when script is loaded by PlatformIO
 if __name__ == "__main__":
-    main()
+    main(env)
 else:
     # PlatformIO runs this as a module, not as __main__
-    main()
+    main(env)
