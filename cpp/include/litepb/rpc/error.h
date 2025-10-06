@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef LITEPB_WITH_RPC
+
 namespace litepb {
 
 struct RpcError
@@ -49,3 +51,5 @@ struct Result
 };
 
 } // namespace litepb
+
+#endif // LITEPB_WITH_RPC

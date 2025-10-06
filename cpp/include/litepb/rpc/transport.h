@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef LITEPB_WITH_RPC
+
 #include <cstddef>
 #include <cstdint>
 
@@ -226,3 +228,5 @@ public:
 };
 
 } // namespace litepb
+
+#endif // LITEPB_WITH_RPC

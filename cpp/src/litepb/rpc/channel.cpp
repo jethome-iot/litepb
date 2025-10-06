@@ -1,3 +1,5 @@
+#ifdef LITEPB_WITH_RPC
+
 #include "litepb/rpc/channel.h"
 #include "litepb/rpc/addressing.h"
 #include <chrono>
@@ -195,3 +197,5 @@ void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, 
 }
 
 } // namespace litepb
+
+#endif // LITEPB_WITH_RPC

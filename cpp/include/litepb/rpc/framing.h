@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef LITEPB_WITH_RPC
+
 #include "rpc_protocol.pb.h"
 #include <cstddef>
 #include <cstdint>
@@ -39,3 +41,5 @@ bool serialize_rpc_message(const rpc::RpcMessage& msg, std::vector<uint8_t>& out
 bool deserialize_rpc_message(const std::vector<uint8_t>& input, rpc::RpcMessage& msg);
 
 } // namespace litepb
+
+#endif // LITEPB_WITH_RPC

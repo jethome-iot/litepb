@@ -1,3 +1,5 @@
+#ifdef LITEPB_WITH_RPC
+
 #include "litepb/rpc/framing.h"
 #include "litepb/core/streams.h"
 #include "litepb/litepb.h"
@@ -95,3 +97,5 @@ bool deserialize_rpc_message(const std::vector<uint8_t>& input, rpc::RpcMessage&
 }
 
 } // namespace litepb
+
+#endif // LITEPB_WITH_RPC

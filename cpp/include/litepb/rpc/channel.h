@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef LITEPB_WITH_RPC
+
 #include "litepb/core/proto_reader.h"
 #include "litepb/core/proto_writer.h"
 #include "litepb/core/streams.h"
@@ -364,3 +366,5 @@ void RpcChannel::on_event(uint16_t service_id, uint32_t method_id, std::function
 }
 
 } // namespace litepb
+
+#endif // LITEPB_WITH_RPC

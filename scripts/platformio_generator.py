@@ -59,6 +59,9 @@ class GeneratorConfig:
         
         # Add RPC protocol protos if enabled
         if use_rpc:
+            # Add LITEPB_WITH_RPC preprocessor definition
+            env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
+            
             # Try to find the RPC protos in multiple locations
             # (handle both main project and example project structures)
             possible_paths = [
