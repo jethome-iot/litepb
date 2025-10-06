@@ -223,22 +223,6 @@ def find_generator_path(env: Any, project_dir: Path) -> Path:
         f"Searched in: {', '.join(str(p) for p in search_paths)}"
     )
 
-
-def clean_output_directory(output_dir: Path) -> None:
-    """Remove all files from the output directory.
-
-    Args:
-        output_dir: Directory to clean
-    """
-    if output_dir.exists():
-        logger.info(f"Cleaning output directory: {output_dir}")
-        shutil.rmtree(output_dir)
-        output_dir.mkdir(parents=True)
-    else:
-        logger.info("Output directory does not exist, creating it.")
-        output_dir.mkdir(parents=True)
-
-
 def generate_proto_files(
     generator_path: Path,
     proto_files: list[Path],
@@ -274,7 +258,7 @@ def generate_proto_files(
     # Add all proto files to the command
     cmd.extend(str(proto_file) for proto_file in proto_files)
 
-    logger.info(f"Running command: {' '.join(cmd)}")
+    # logger.info(f"Running command: {' '.join(cmd)}")
 
     result = subprocess.run(cmd, capture_output=False)
     if result.returncode != 0:
@@ -320,7 +304,6 @@ def generate_all_protos(config: GeneratorConfig, generator_path: Path) -> None:
             # Proto file is outside project directory, show absolute path
             logger.info(f"  - {proto}")
 
-    clean_output_directory(config.output_dir)
     setup_compiler_paths(config.env, config.output_dir)
 
     # Batch process all proto files in a single invocation
