@@ -106,11 +106,43 @@ All C++ code follows strict formatting rules enforced by clang-format:
 - **Auto-Generation**: All test environments generate `rpc_protocol.pb.h` automatically
 - **Include Path**: Generated files are accessible via `litepb/generated/` include path
 
-### Testing GitHub Actions Locally
-- **Tool**: Use `act` to test GitHub Actions workflows locally
-- **Installation**: `brew install act` (macOS) or see [act documentation](https://github.com/nektos/act)
-- **Usage**: Run `act` in the repository root to execute CI workflows locally
-- **Benefits**: Test CI changes without pushing to GitHub, faster iteration on workflow fixes
+### Testing GitHub Actions Locally with act
+- **Tool**: `act` is installed and ready to use for testing GitHub Actions workflows locally
+- **Version**: act 0.2.77
+- **Installation**: Installed via Nix package manager in Replit environment
+
+**Available Commands:**
+```bash
+# List all available workflows and jobs
+act --list
+
+# Run a specific job (dry-run mode due to Docker limitations in Replit)
+act -j format-check -n    # Check format workflow syntax
+act -j test -n             # Check test workflow syntax
+act -j coverage -n         # Check coverage workflow syntax
+
+# View workflow configuration
+act -j build-examples -n --verbose
+```
+
+**Workflow Jobs Available:**
+- `format-check` - Validates C++ code formatting
+- `test` - Runs all 298 PlatformIO tests
+- `test-interop` - Tests Protocol Buffer interoperability
+- `build-examples` - Builds all example projects
+- `coverage` - Generates code coverage reports
+- `build-and-push` - Docker image build and push
+
+**Limitations in Replit:**
+- Docker is not available, so actual workflow execution isn't possible
+- Use for syntax validation and workflow structure checking
+- Full execution should be tested on local machine with Docker
+
+**Benefits:**
+- Validate workflow syntax before pushing
+- Review job dependencies and structure
+- Check for configuration errors
+- Understand CI pipeline flow
 
 
 ## Current Status
