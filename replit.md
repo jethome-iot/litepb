@@ -101,8 +101,21 @@ All C++ code follows strict formatting rules enforced by clang-format:
 - **Git Policy**: Generated files are NOT committed to the repository (see `.gitignore`)
 - **Build Integration**: PlatformIO automatically generates required proto files via `custom_litepb_protos` in `platformio.ini`
 
+### Proto Organization
+
+**Core LitePB Protocols** (`proto/litepb/`)
+- `rpc_protocol.proto` - Versioned RPC message format  
+- `rpc_options.proto` - RPC service options and annotations
+
+**Test Protos** (`tests/proto/`)
+- `serialization/` - Serialization test protos (simple, scalar_types, repeated_fields, etc.)
+- `rpc/` - RPC-specific test protos (rpc.proto, rpc_test.proto)
+
+**Example Protos** (`examples/rpc/litepb_rpc/proto/`)
+- Application-specific protos for sensor and switch services
+
 ### RPC Protocol Files
-- **Protocol Definition**: `proto/rpc_protocol.proto` defines the versioned RPC message format
+- **Protocol Definition**: `proto/litepb/rpc_protocol.proto` defines the versioned RPC message format
 - **Auto-Generation**: All test environments generate `rpc_protocol.pb.h` automatically
 - **Include Path**: Generated files are accessible via `litepb/generated/` include path
 
