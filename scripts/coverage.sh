@@ -16,7 +16,7 @@ echo "✓ Cleaned previous coverage data"
 echo ""
 
 echo "Step 2: Running tests with coverage instrumentation..."
-pio test -e coverage --filter "core/test_streams" --filter "core/test_proto_reader" --filter "core/test_proto_writer" --filter "rpc/test_core" --filter "rpc/test_error_propagation"
+pio test -e native_coverage
 echo "✓ Tests completed"
 echo ""
 
