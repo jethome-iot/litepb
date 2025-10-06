@@ -113,7 +113,7 @@ private:
 
     void check_timeouts();
     void process_incoming_messages();
-    void handle_message(const TransportFrame& frame, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id);
+    void handle_message(const TransportFrame& frame, uint64_t src_addr, uint64_t dst_addr);
 };
 
 template <typename Req, typename Resp>
@@ -137,6 +137,7 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
     rpc_msg.service_id   = service_id;
     rpc_msg.method_id    = method_id;
     rpc_msg.message_type = rpc::RpcMessage::MessageType::REQUEST;
+    rpc_msg.msg_id       = msg_id; // Message ID moved to protocol buffer
     rpc_msg.payload      = std::vector<uint8_t>(request_stream.data(), request_stream.data() + request_stream.size());
 
     // Serialize RPC message
@@ -161,7 +162,7 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
         return false;
     }
 
-    if (!transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr, msg_id)) {
+    if (!transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr)) {
         Result<Resp> error_result;
         error_result.error.code = RpcError::TRANSPORT_ERROR;
         callback(error_result);
@@ -230,6 +231,7 @@ bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req& 
     rpc_msg.service_id   = service_id;
     rpc_msg.method_id    = method_id;
     rpc_msg.message_type = rpc::RpcMessage::MessageType::EVENT;
+    rpc_msg.msg_id       = msg_id; // Events use msg_id = 0
     rpc_msg.payload      = std::vector<uint8_t>(request_stream.data(), request_stream.data() + request_stream.size());
 
     // Serialize RPC message
@@ -248,7 +250,7 @@ bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req& 
         return false;
     }
 
-    return transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr, msg_id);
+    return transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr);
 }
 
 template <typename Req, typename Resp>
@@ -269,6 +271,7 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
             rpc_msg.service_id   = service_id;
             rpc_msg.method_id    = 0; // Method ID not relevant for response
             rpc_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
+            rpc_msg.msg_id       = msg_id; // Include msg_id for correlation
             rpc_msg.payload      = response;
 
             std::vector<uint8_t> rpc_payload;
@@ -278,7 +281,7 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
 
                 BufferOutputStream out_stream;
                 if (encode_transport_frame(frame, out_stream, is_stream_transport_)) {
-                    transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr, msg_id);
+                    transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr);
                 }
             }
             return;
@@ -329,6 +332,7 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
         rpc_msg.service_id   = service_id;
         rpc_msg.method_id    = 0; // Method ID not relevant for response
         rpc_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
+        rpc_msg.msg_id       = msg_id; // Include msg_id for correlation
         rpc_msg.payload      = response;
 
         // Serialize and send
@@ -339,7 +343,7 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
 
             BufferOutputStream out_stream;
             if (encode_transport_frame(frame, out_stream, is_stream_transport_)) {
-                transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr, msg_id);
+                transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr);
             }
         }
     };

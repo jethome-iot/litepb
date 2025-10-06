@@ -61,9 +61,8 @@ void RpcChannel::process_incoming_messages()
         }
 
         uint64_t src_addr, dst_addr;
-        uint16_t msg_id;
 
-        size_t received = transport_.recv(rx_buffer_.data() + rx_pos_, rx_buffer_.size() - rx_pos_, src_addr, dst_addr, msg_id);
+        size_t received = transport_.recv(rx_buffer_.data() + rx_pos_, rx_buffer_.size() - rx_pos_, src_addr, dst_addr);
         if (received == 0) {
             break;
         }
@@ -73,7 +72,7 @@ void RpcChannel::process_incoming_messages()
         TransportFrame frame;
 
         if (decode_transport_frame(input, frame, is_stream_transport_)) {
-            handle_message(frame, src_addr, dst_addr, msg_id);
+            handle_message(frame, src_addr, dst_addr);
 
             size_t consumed = input.position();
             if (consumed > 0 && consumed <= rx_pos_) {
@@ -87,7 +86,7 @@ void RpcChannel::process_incoming_messages()
     }
 }
 
-void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id)
+void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, uint64_t dst_addr)
 {
     // Check if message is for us
     if (dst_addr != RPC_ADDRESS_WILDCARD && dst_addr != local_address_ && dst_addr != RPC_ADDRESS_BROADCAST) {
@@ -105,6 +104,9 @@ void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, 
         // Unsupported protocol version
         return;
     }
+
+    // Extract msg_id from RpcMessage (now part of protocol buffer)
+    uint16_t msg_id = static_cast<uint16_t>(rpc_msg.msg_id);
 
     // Handle based on message type
     switch (rpc_msg.message_type) {
@@ -128,6 +130,7 @@ void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, 
             response_msg.service_id   = rpc_msg.service_id;
             response_msg.method_id    = 0;
             response_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
+            response_msg.msg_id       = rpc_msg.msg_id; // Echo back the msg_id for correlation
             response_msg.payload      = response;
 
             std::vector<uint8_t> rpc_payload;
@@ -137,7 +140,7 @@ void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, 
 
                 BufferOutputStream out_stream;
                 if (encode_transport_frame(response_frame, out_stream, is_stream_transport_)) {
-                    transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr, msg_id);
+                    transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr);
                 }
             }
         }
@@ -145,7 +148,7 @@ void RpcChannel::handle_message(const TransportFrame& frame, uint64_t src_addr, 
     }
 
     case rpc::RpcMessage::MessageType::RESPONSE: {
-        // This is a response, find pending call
+        // This is a response, find pending call using msg_id extracted from RpcMessage
         auto pending_it = pending_calls_.find(PendingKey{ src_addr, static_cast<uint16_t>(rpc_msg.service_id), msg_id });
         bool found      = false;
 

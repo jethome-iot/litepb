@@ -39,15 +39,15 @@ public:
      * @param len Number of bytes to send
      * @param src_addr Source address for the message
      * @param dst_addr Destination address for the message
-     * @param msg_id Message identifier for correlating responses
      * @return true if send initiated successfully, false on error
      *
      * @note Non-blocking: may return before all data is transmitted
      * @note Stream transports: may send partial data (check return value)
      * @note Packet transports: should send complete buffer atomically
      * @note Addressing is handled at the transport layer
+     * @note msg_id has been moved to the RpcMessage protocol buffer
      */
-    virtual bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id) = 0;
+    virtual bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) = 0;
 
     /**
      * @brief Receive bytes from the transport with addressing
@@ -61,15 +61,15 @@ public:
      * @param max_len Maximum bytes to read (buffer capacity)
      * @param src_addr Output: Source address from received message
      * @param dst_addr Output: Destination address from received message
-     * @param msg_id Output: Message identifier from received message
      * @return Number of bytes actually read (0 if none available)
      *
      * @note Non-blocking: returns immediately with available data
      * @note Return value of 0 indicates no data available (not an error)
      * @note Caller must check return value to determine bytes received
      * @note Addressing information is extracted from transport layer
+     * @note msg_id has been moved to the RpcMessage protocol buffer
      */
-    virtual size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr, uint16_t& msg_id) = 0;
+    virtual size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) = 0;
 
     /**
      * @brief Check if data is available to receive

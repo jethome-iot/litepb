@@ -18,11 +18,15 @@ message RpcMessage {
     }
     MessageType message_type = 4;
     
+    // Message correlation ID (moved from transport layer)
+    // Used to match requests with responses
+    uint64 msg_id = 5;
+    
     // Payload based on message_type
     oneof payload {
-        bytes request_data = 5;        // For REQUEST
-        RpcResponse response = 6;      // For RESPONSE  
-        bytes event_data = 7;          // For EVENT
+        bytes request_data = 6;        // For REQUEST
+        RpcResponse response = 7;      // For RESPONSE  
+        bytes event_data = 8;          // For EVENT
     }
 }
 

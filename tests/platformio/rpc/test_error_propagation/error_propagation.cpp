@@ -29,7 +29,7 @@ public:
 
     const std::vector<uint8_t>& get_captured_bytes() const { return captured_bytes_; }
 
-    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr, uint16_t msg_id) override
+    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) override
     {
         if (capture_enabled_) {
             for (size_t i = 0; i < len; ++i) {
@@ -41,10 +41,9 @@ public:
             return false;
         }
 
-        // Store metadata for recv
+        // Store metadata for recv (msg_id now in RpcMessage)
         peer_->last_src_addr_ = src_addr;
         peer_->last_dst_addr_ = dst_addr;
-        peer_->last_msg_id_   = msg_id;
 
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
@@ -52,12 +51,11 @@ public:
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr, uint16_t& msg_id) override
+    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) override
     {
-        // Return stored metadata
+        // Return stored metadata (msg_id now in RpcMessage)
         src_addr = last_src_addr_;
         dst_addr = last_dst_addr_;
-        msg_id   = last_msg_id_;
 
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
@@ -72,7 +70,6 @@ public:
     std::queue<uint8_t> rx_queue_;
     uint64_t last_src_addr_ = 0;
     uint64_t last_dst_addr_ = 0;
-    uint16_t last_msg_id_   = 0;
 
 private:
     LoopbackTransport* peer_;
