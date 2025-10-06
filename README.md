@@ -381,7 +381,6 @@ Copyright (c) 2025 JetHome LLC
 
 - **Documentation**: [Full documentation](docs/)
 - **Issues**: [GitHub Issues](https://github.com/jethome-iot/litepb/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jethome-iot/litepb/discussions)
 
 ## Acknowledgments
 
