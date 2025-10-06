@@ -4,7 +4,7 @@ syntax = "proto3";
 package test.packaging.v1;
 
 // Import from another package
-import "enums.proto";
+import "serialization/enums.proto";
 import "litepb/rpc_options.proto";
 
 // Option for Java package (for reference)
