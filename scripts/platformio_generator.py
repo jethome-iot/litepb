@@ -14,6 +14,12 @@ from __future__ import annotations
 
 Import("env")  # PlatformIO environment injection - must be first line
 
+# Try to import projenv for global environment access
+try:
+    Import("projenv")
+except:
+    projenv = None
+
 import logging
 import shutil
 import subprocess
@@ -54,13 +60,32 @@ class GeneratorConfig:
         ]
 
         # Check if RPC support is enabled
-        use_rpc_str = env.subst(env.GetProjectOption("custom_litepb_use_rpc", "false"))
-        use_rpc = use_rpc_str.lower() in ["true", "yes", "1", "on"]
+        use_rpc = False
+        
+        # First check if LITEPB_WITH_RPC is already defined (might be passed from parent project)
+        if "LITEPB_WITH_RPC" in env.get("CPPDEFINES", []):
+            use_rpc = True
+        else:
+            # Try to get from project options
+            try:
+                use_rpc_str = env.subst(env.GetProjectOption("custom_litepb_use_rpc", "false"))
+                use_rpc = use_rpc_str.lower() in ["true", "yes", "1", "on"]
+            except:
+                # GetProjectOption might fail when building as a library dependency
+                # In that case, check if we're in an RPC example by looking at the project path
+                if "rpc" in str(self.project_dir).lower():
+                    use_rpc = True
         
         # Add RPC protocol protos if enabled
         if use_rpc:
-            # Add LITEPB_WITH_RPC preprocessor definition
-            env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
+            # Add LITEPB_WITH_RPC preprocessor definition to current environment
+            if "LITEPB_WITH_RPC" not in env.get("CPPDEFINES", []):
+                env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
+            
+            # Also add to project environment if available (for library builds)
+            global projenv
+            if projenv is not None and "LITEPB_WITH_RPC" not in projenv.get("CPPDEFINES", []):
+                projenv.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
             
             # Try to find the RPC protos in multiple locations
             # (handle both main project and example project structures)
@@ -248,6 +273,20 @@ def main(build_env: Any) -> None:
     logger.info("=" * 38)
     logger.info("LitePB code generation script started")
     logger.info("=" * 38)
+    
+    # Additional check: If we're building the library and the parent project needs RPC,
+    # ensure LITEPB_WITH_RPC is defined for library compilation
+    global projenv
+    if projenv is not None:
+        # Check if the parent project has RPC enabled
+        try:
+            parent_rpc = projenv.GetProjectOption("custom_litepb_use_rpc", "false")
+            if parent_rpc.lower() in ["true", "yes", "1", "on"]:
+                # Ensure library gets compiled with RPC support
+                if "LITEPB_WITH_RPC" not in build_env.get("CPPDEFINES", []):
+                    build_env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
+        except:
+            pass
 
     try:
         config = GeneratorConfig(build_env)
