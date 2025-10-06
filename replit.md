@@ -220,6 +220,14 @@ Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
 - **Coverage Reports**: Generated in `tmp/coverage/` directory structure
 - **Comprehensive Test Suite**: Full coverage across core functionality, protocol features, and RPC implementation
 
+### PlatformIO Generator
+- **Glob Pattern Support**: `custom_litepb_protos` now accepts glob patterns (*, ?, []) for flexible proto file matching
+- **Module Constants**: All hardcoded values defined as constants (LITEPB_DIR_NAME, GENERATED_DIR_NAME, etc.)
+- **Encapsulated Config**: GeneratorConfig uses private fields (_env, _projenv) with proper encapsulation
+- **Library Discovery**: Uses env.get("LIBSOURCE_DIRS", []) for finding library dependencies
+- **RPC Detection**: Consolidated into single _detect_rpc_enabled() method for clarity
+- **Path Handling**: Robust handling of proto files both inside and outside project directories
+
 ### CI/CD
 - **GitHub Actions**: 5 jobs (Format Check, PlatformIO Tests, Test Interop, Build Examples, Code Coverage)
 - **Environment**: Ubuntu 24.04 GitHub-hosted runners
