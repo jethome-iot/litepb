@@ -6,15 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  CONTAINER_IMAGE: ghcr.io/jethome-iot/litepb-dev:latest
-
 jobs:
   format-check:
     name: Format Check
     runs-on: ubuntu-24.04
     container:
-      image: ${{ env.CONTAINER_IMAGE }}
+      image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -30,7 +27,7 @@ jobs:
     name: PlatformIO Tests
     runs-on: ubuntu-24.04
     container:
-      image: ${{ env.CONTAINER_IMAGE }}
+      image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -46,7 +43,7 @@ jobs:
     name: Test Interop
     runs-on: ubuntu-24.04
     container:
-      image: ${{ env.CONTAINER_IMAGE }}
+      image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -96,7 +93,7 @@ jobs:
       matrix:
         example: ${{ fromJson(needs.examples-discover.outputs.examples) }}
     container:
-      image: ${{ env.CONTAINER_IMAGE }}
+      image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -132,7 +129,7 @@ jobs:
     name: Code Coverage
     runs-on: ubuntu-24.04
     container:
-      image: ${{ env.CONTAINER_IMAGE }}
+      image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

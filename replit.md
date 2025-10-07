@@ -231,7 +231,7 @@ Format Check | PlatformIO Tests | Test Interop | Examples | Code Coverage
 ### CI/CD
 - **GitHub Actions**: 5 main jobs (Format Check, PlatformIO Tests, Test Interop, Examples, Code Coverage) with examples-discover as a supporting job
 - **Environment**: Ubuntu 24.04 GitHub-hosted runners
-- **Container**: `ghcr.io/jethome-iot/litepb-dev:latest` Docker image for consistent builds via workflow-level CONTAINER_IMAGE environment variable
+- **Container**: `ghcr.io/jethome-iot/litepb-dev:latest` Docker image for consistent builds (literal value in each job due to GitHub Actions env context limitations)
 - **Code Quality**: Enforced via clang-format style rules on all C++ code
 - **Build Speed**: Docker-based CI eliminates dependency installation overhead
 - **Fork Support**: Fork repositories use the main repository's Docker image
