@@ -228,6 +228,17 @@ Format Check | PlatformIO Tests | Test Interop | Examples | Code Coverage
 - **RPC Detection**: Consolidated into single _detect_rpc_enabled() method for clarity
 - **Path Handling**: Robust handling of proto files both inside and outside project directories
 
+### Code Generator Architecture
+- **Descriptor-Based**: Generator uses Google Protobuf descriptor objects (FileDescriptorProto, DescriptorProto, etc.) directly instead of converting to dictionaries
+- **Type Safety**: Leverages Google's enum types (FieldDescriptor.Type, FieldDescriptor.Label) for proper type checking
+- **RPC Options**: Custom extension fields extracted into typed dataclasses (RpcMethodOptions, RpcServiceOptions) with field number constants (50003-50006)
+- **Proto3 Optional Handling**: Correctly distinguishes between proto3 explicit optional fields (std::optional) and implicit fields (bare C++ types)
+- **Modular Components**:
+  - `proto_parser.py`: Returns FileDescriptorProto directly, provides RPC option extraction helpers
+  - `cpp_generator.py`: Consumes descriptor objects, generates C++ code with proper optional handling
+  - `type_mapper.py`: Maps protobuf types to C++ types using descriptor objects
+  - `rpc_options.py`: Defines extension field constants and RPC option dataclasses
+
 ### CI/CD
 - **GitHub Actions**: 5 main jobs (Format Check, PlatformIO Tests, Test Interop, Examples, Code Coverage) with examples-discover as a supporting job
 - **Environment**: Ubuntu 24.04 GitHub-hosted runners
@@ -235,3 +246,4 @@ Format Check | PlatformIO Tests | Test Interop | Examples | Code Coverage
 - **Code Quality**: Enforced via clang-format style rules on all C++ code
 - **Build Speed**: Docker-based CI eliminates dependency installation overhead
 - **Fork Support**: Fork repositories use the main repository's Docker image
+- **Test Coverage**: 170 tests covering core functionality, serialization (proto2/proto3), and RPC with full passing rate
