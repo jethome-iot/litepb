@@ -8,6 +8,23 @@ Runtime protocol fields like msg_id and message_type are defined in
 RpcMessage (see rpc_protocol.proto) and handled by the wire protocol layer.
 """
 
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class RpcMethodOptions:
+    """Dataclass representing parsed RPC method option values."""
+    method_id: Optional[int] = None
+    default_timeout_ms: int = 5000
+    fire_and_forget: bool = False
+
+
+@dataclass
+class RpcServiceOptions:
+    """Dataclass representing parsed RPC service option values."""
+    service_id: Optional[int] = None
+
 
 class MethodOptions:
     """Extension field numbers for RPC method options.
