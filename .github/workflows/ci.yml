@@ -94,7 +94,7 @@ jobs:
             fi
             jq -n --arg path "$example_dir" --arg name "$name" --argjson has_tests "$has_tests" \
               '{path: $path, name: $name, has_tests: $has_tests}'
-          done | jq -s '.')
+          done | jq -sc '.')
           echo "examples=$examples" >> $GITHUB_OUTPUT
           echo "Found examples: $examples"
   
