@@ -310,7 +310,10 @@ class ProtoParser:
         method_id = None
         fire_and_forget = False
         
-        # Extract custom options (litepb.rpc extension fields)
+        # Extract custom options from method options extension fields.
+        # Extension field numbers: default_timeout_ms (50003), method_id (50004), fire_and_forget (50005)
+        # Note: msg_id and message_type are NOT in method options - they are part of RpcMessage
+        # (the wire protocol) and are handled at the transport/channel layer.
         if method_proto.HasField('options'):
             options = method_proto.options
             serialized = options.SerializeToString()

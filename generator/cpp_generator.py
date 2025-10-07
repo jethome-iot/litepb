@@ -121,7 +121,8 @@ namespace litepb {
         import_includes = []
         for imp in proto.get('imports', []):
             proto_path = imp['path']
-            # Skip rpc_options.proto - it's only for extension definitions
+            # Skip rpc_options.proto - it's only for compile-time extension field definitions
+            # (Runtime fields like msg_id and message_type are in rpc_protocol.proto/RpcMessage)
             if 'rpc_options.proto' in proto_path:
                 continue
             # Convert "path/to/file.proto" to "path/to/file.pb.h"
