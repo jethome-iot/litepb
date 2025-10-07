@@ -164,7 +164,7 @@ act --version
 **Example Output:**
 
 The project has two workflow files with the following structure:
-- `ci.yml`: Main CI pipeline with 6 jobs (prepare → format-check, test, test-interop, build-examples, coverage)
+- `ci.yml`: Main CI pipeline with 5 jobs (format-check, test, test-interop, examples, coverage)
 - `build-docker.yml`: Docker image building workflow
 
 Workflow dependency graph shows:
@@ -229,7 +229,7 @@ Format Check | PlatformIO Tests | Test Interop | Build Examples | Code Coverage
 - **Path Handling**: Robust handling of proto files both inside and outside project directories
 
 ### CI/CD
-- **GitHub Actions**: 5 jobs (Format Check, PlatformIO Tests, Test Interop, Build Examples, Code Coverage)
+- **GitHub Actions**: 5 jobs (Format Check, PlatformIO Tests, Test Interop, Examples, Code Coverage)
 - **Environment**: Ubuntu 24.04 GitHub-hosted runners
 - **Container**: `ghcr.io/jethome-iot/litepb-dev:latest` Docker image for consistent builds
 - **Code Quality**: Enforced via clang-format style rules on all C++ code
