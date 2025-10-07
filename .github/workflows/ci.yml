@@ -6,24 +6,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  CONTAINER_IMAGE: ghcr.io/jethome-iot/litepb-dev:latest
+
 jobs:
-  prepare:
-    name: Prepare Environment
-    runs-on: ubuntu-24.04
-    outputs:
-      container_image: ${{ steps.image.outputs.name }}
-    steps:
-      - name: Set container image name
-        id: image
-        run: |
-          echo "name=ghcr.io/jethome-iot/litepb-dev:latest" >> $GITHUB_OUTPUT
-  
   format-check:
     name: Format Check
     runs-on: ubuntu-24.04
-    needs: prepare
     container:
-      image: ${{ needs.prepare.outputs.container_image }}
+      image: ${{ env.CONTAINER_IMAGE }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -38,9 +29,8 @@ jobs:
   test:
     name: PlatformIO Tests
     runs-on: ubuntu-24.04
-    needs: prepare
     container:
-      image: ${{ needs.prepare.outputs.container_image }}
+      image: ${{ env.CONTAINER_IMAGE }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -55,9 +45,8 @@ jobs:
   test-interop:
     name: Test Interop
     runs-on: ubuntu-24.04
-    needs: prepare
     container:
-      image: ${{ needs.prepare.outputs.container_image }}
+      image: ${{ env.CONTAINER_IMAGE }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -101,13 +90,13 @@ jobs:
   examples:
     name: Example ${{ matrix.example.name }}
     runs-on: ubuntu-24.04
-    needs: [prepare, examples-discover]
+    needs: [examples-discover]
     strategy:
       fail-fast: false
       matrix:
         example: ${{ fromJson(needs.examples-discover.outputs.examples) }}
     container:
-      image: ${{ needs.prepare.outputs.container_image }}
+      image: ${{ env.CONTAINER_IMAGE }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -142,9 +131,8 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-24.04
-    needs: prepare
     container:
-      image: ${{ needs.prepare.outputs.container_image }}
+      image: ${{ env.CONTAINER_IMAGE }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
