@@ -6,22 +6,15 @@ import "google/protobuf/descriptor.proto";
 
 // Custom options for RPC method configuration.
 // These extend google.protobuf.MethodOptions to provide LitePB-specific metadata.
+//
+// Note: msg_id and message_type are part of the RpcMessage wire protocol,
+// not method options. They are handled at the transport layer.
 extend google.protobuf.MethodOptions {
   // method_id is a unique numeric identifier for this RPC method within the service.
   // Required to identify methods in the wire protocol.
   // Must be unique within the service. Recommended range: 1-65535.
   // Example: option (litepb.rpc.method_id) = 1;
   uint32 method_id = 50004;
-  
-  // fire_and_forget marks this RPC as a one-way event (no response expected).
-  // When true, the method sends a message without waiting for a response.
-  // - No pending call slots are allocated
-  // - msg_id is set to 0 in the wire protocol
-  // - No callback or timeout handling
-  // - Efficient for notifications, telemetry, and event streams
-  // Default: false (traditional request-response RPC)
-  // Example: option (litepb.rpc.fire_and_forget) = true;
-  bool fire_and_forget = 50005;
   
   // default_timeout_ms sets the default timeout for this RPC call in milliseconds.
   // Can be overridden per-call at runtime. A value of 0 means no timeout.
