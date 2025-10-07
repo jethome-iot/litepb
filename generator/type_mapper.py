@@ -4,6 +4,7 @@ Type mapper for converting protobuf types to C++ types.
 """
 
 from typing import Dict, Any, Optional
+from google.protobuf import descriptor_pb2
 
 
 class TypeMapper:
@@ -69,18 +70,42 @@ class TypeMapper:
     }
     
     @classmethod
+    def _field_type_to_string(cls, field_type: int) -> str:
+        """Convert FieldDescriptorProto type enum to string name."""
+        type_names = {
+            descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE: 'TYPE_DOUBLE',
+            descriptor_pb2.FieldDescriptorProto.TYPE_FLOAT: 'TYPE_FLOAT',
+            descriptor_pb2.FieldDescriptorProto.TYPE_INT64: 'TYPE_INT64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_UINT64: 'TYPE_UINT64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_INT32: 'TYPE_INT32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_FIXED64: 'TYPE_FIXED64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_FIXED32: 'TYPE_FIXED32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_BOOL: 'TYPE_BOOL',
+            descriptor_pb2.FieldDescriptorProto.TYPE_STRING: 'TYPE_STRING',
+            descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE: 'TYPE_MESSAGE',
+            descriptor_pb2.FieldDescriptorProto.TYPE_BYTES: 'TYPE_BYTES',
+            descriptor_pb2.FieldDescriptorProto.TYPE_UINT32: 'TYPE_UINT32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_ENUM: 'TYPE_ENUM',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SFIXED32: 'TYPE_SFIXED32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SFIXED64: 'TYPE_SFIXED64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SINT32: 'TYPE_SINT32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SINT64: 'TYPE_SINT64',
+        }
+        return type_names.get(field_type, f'TYPE_UNKNOWN_{field_type}')
+    
+    @classmethod
     def get_cpp_type(cls, proto_type: str) -> str:
         """Get the C++ type for a protobuf type."""
         return cls.CPP_TYPE_MAP.get(proto_type, '')
     
     @classmethod
-    def get_field_cpp_type(cls, field: Dict[str, Any], proto: Dict[str, Any]) -> str:
+    def get_field_cpp_type(cls, field: descriptor_pb2.FieldDescriptorProto, file_proto: descriptor_pb2.FileDescriptorProto) -> str:
         """
         Get the complete C++ type for a field, including containers.
         
         Args:
-            field: Field dictionary
-            proto: Proto file dictionary for context
+            field: Field descriptor
+            file_proto: File descriptor for context
             
         Returns:
             Complete C++ type string
@@ -88,68 +113,80 @@ class TypeMapper:
         base_type = ''
         
         # Get base type
-        if field['type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
+        if field.type in (descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE, descriptor_pb2.FieldDescriptorProto.TYPE_ENUM):
             # Use the type name directly, qualified if needed
-            base_type = cls.qualify_type_name(field['type_name'], proto.get('package', ''))
+            type_name = field.type_name if field.HasField('type_name') else ''
+            package = file_proto.package if file_proto.package else ''
+            base_type = cls.qualify_type_name(type_name, package)
         else:
-            base_type = cls.get_cpp_type(field['type'])
+            field_type_str = cls._field_type_to_string(field.type)
+            base_type = cls.get_cpp_type(field_type_str)
         
         # Handle repeated fields
-        if field['label'] == 'REPEATED':
-            if field['type'] == 'TYPE_BYTES':
+        if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED:
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_BYTES:
                 # Special case: repeated bytes is vector<vector<uint8_t>>
                 return 'std::vector<std::vector<uint8_t>>'
             return f'std::vector<{base_type}>'
         
         # Handle optional fields
-        syntax = proto.get('syntax', 'proto2')
-        if field['label'] == 'OPTIONAL':
+        syntax = file_proto.syntax if file_proto.syntax else 'proto2'
+        if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL:
             # Proto2 optional or proto3 explicit optional
             return f'std::optional<{base_type}>'
         
         return base_type
     
     @classmethod
-    def get_map_cpp_type(cls, map_field: Dict[str, Any], proto: Dict[str, Any]) -> str:
+    def get_map_cpp_type(cls, key_field: descriptor_pb2.FieldDescriptorProto, value_field: descriptor_pb2.FieldDescriptorProto, file_proto: descriptor_pb2.FileDescriptorProto) -> str:
         """
         Get the C++ type for a map field.
         
         Args:
-            map_field: Map field dictionary
-            proto: Proto file dictionary for context
+            key_field: Key field descriptor from map entry
+            value_field: Value field descriptor from map entry
+            file_proto: File descriptor for context
             
         Returns:
             C++ map type string
         """
-        key_type = cls.get_cpp_type(map_field['key_type'])
+        # Get key type
+        key_type_str = cls._field_type_to_string(key_field.type)
+        key_type = cls.get_cpp_type(key_type_str)
         
         # Get value type
-        if map_field['value_type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-            value_type = cls.qualify_type_name(map_field['value_type_name'], proto.get('package', ''))
+        if value_field.type in (descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE, descriptor_pb2.FieldDescriptorProto.TYPE_ENUM):
+            value_type_name = value_field.type_name if value_field.HasField('type_name') else ''
+            package = file_proto.package if file_proto.package else ''
+            value_type = cls.qualify_type_name(value_type_name, package)
         else:
-            value_type = cls.get_cpp_type(map_field['value_type'])
+            value_type_str = cls._field_type_to_string(value_field.type)
+            value_type = cls.get_cpp_type(value_type_str)
         
         return f'std::unordered_map<{key_type}, {value_type}>'
     
     @classmethod
-    def get_oneof_cpp_type(cls, oneof: Dict[str, Any], proto: Dict[str, Any]) -> str:
+    def get_oneof_cpp_type(cls, fields: list, file_proto: descriptor_pb2.FileDescriptorProto) -> str:
         """
         Get the C++ type for a oneof field (using std::variant).
         
         Args:
-            oneof: Oneof field dictionary
-            proto: Proto file dictionary for context
+            fields: List of FieldDescriptorProto objects in the oneof
+            file_proto: File descriptor for context
             
         Returns:
             C++ variant type string
         """
         variant_types = ['std::monostate']  # Default empty state
         
-        for field in oneof['fields']:
-            if field['type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                field_type = cls.qualify_type_name(field['type_name'], proto.get('package', ''))
+        for field in fields:
+            if field.type in (descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE, descriptor_pb2.FieldDescriptorProto.TYPE_ENUM):
+                type_name = field.type_name if field.HasField('type_name') else ''
+                package = file_proto.package if file_proto.package else ''
+                field_type = cls.qualify_type_name(type_name, package)
             else:
-                field_type = cls.get_cpp_type(field['type'])
+                field_type_str = cls._field_type_to_string(field.type)
+                field_type = cls.get_cpp_type(field_type_str)
             variant_types.append(field_type)
         
         return f'std::variant<{", ".join(variant_types)}>'
@@ -160,44 +197,46 @@ class TypeMapper:
         return cls.WIRE_TYPE_MAP.get(proto_type, 'litepb::WIRE_TYPE_VARINT')
     
     @classmethod
-    def get_default_value(cls, field: Dict[str, Any], proto: Dict[str, Any]) -> str:
+    def get_default_value(cls, field: descriptor_pb2.FieldDescriptorProto, file_proto: descriptor_pb2.FileDescriptorProto) -> str:
         """
         Get the default value for a field.
         
         Args:
-            field: Field dictionary
-            proto: Proto file dictionary for context
+            field: Field descriptor
+            file_proto: File descriptor for context
             
         Returns:
             Default value as C++ code string
         """
         # Check for explicit default value
-        if field.get('default_value'):
-            default_val = field['default_value']
+        if field.HasField('default_value'):
+            default_val = field.default_value
             
             # Handle string defaults
-            if field['type'] == 'TYPE_STRING':
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_STRING:
                 # Escape the string properly
                 escaped = default_val.replace('\\', '\\\\').replace('"', '\\"')
                 return f'"{escaped}"'
             
             # Handle bool defaults
-            if field['type'] == 'TYPE_BOOL':
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_BOOL:
                 return 'true' if default_val.lower() == 'true' else 'false'
             
             # Handle enum defaults
-            if field['type'] == 'TYPE_ENUM':
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM:
                 # Return the enum value name
-                return cls.qualify_type_name(default_val, proto.get('package', ''))
+                package = file_proto.package if file_proto.package else ''
+                return cls.qualify_type_name(default_val, package)
             
             # For numeric types, return as-is
             return default_val
         
         # Return standard defaults
-        if field['type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
+        field_type_str = cls._field_type_to_string(field.type)
+        if field.type in (descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE, descriptor_pb2.FieldDescriptorProto.TYPE_ENUM):
             return '{}'
         
-        return cls.DEFAULT_VALUES.get(field['type'], '{}')
+        return cls.DEFAULT_VALUES.get(field_type_str, '{}')
     
     @classmethod
     def get_serialization_method(cls, proto_type: str) -> str:

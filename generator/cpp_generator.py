@@ -7,8 +7,10 @@ Generates C++ header and implementation files from protobuf descriptors.
 import os
 from typing import Dict, Any, List, Optional
 from jinja2 import Environment, DictLoader
+from google.protobuf import descriptor_pb2
 from type_mapper import TypeMapper
 from rpc_options import MethodOptions, ServiceOptions
+from proto_parser import ProtoParser
 
 
 class CppGenerator:
@@ -17,8 +19,87 @@ class CppGenerator:
     def __init__(self):
         """Initialize the generator with templates."""
         self.type_mapper = TypeMapper()
-        self.current_proto = {}  # Track current proto for context
+        self.current_proto = None  # Track current proto for context (FileDescriptorProto)
+        self.parser = ProtoParser()  # For extracting RPC options
         self.setup_templates()
+    
+    # Helper methods for working with protobuf descriptor enums
+    @staticmethod
+    def is_message_type(field: descriptor_pb2.FieldDescriptorProto) -> bool:
+        """Check if field is a message type."""
+        return field.type == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE
+    
+    @staticmethod
+    def is_enum_type(field: descriptor_pb2.FieldDescriptorProto) -> bool:
+        """Check if field is an enum type."""
+        return field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM
+    
+    @staticmethod
+    def is_repeated(field: descriptor_pb2.FieldDescriptorProto) -> bool:
+        """Check if field is repeated."""
+        return field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED
+    
+    @staticmethod
+    def is_map_field(message_proto: descriptor_pb2.DescriptorProto, 
+                     field_proto: descriptor_pb2.FieldDescriptorProto) -> bool:
+        """Check if field is a map field (TYPE_MESSAGE with map_entry option)."""
+        if field_proto.type != descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE:
+            return False
+        
+        # Find the nested type for this field
+        type_name = field_proto.type_name.split('.')[-1]
+        for nested_type in message_proto.nested_type:
+            if nested_type.name == type_name:
+                return nested_type.options.map_entry if nested_type.HasField('options') else False
+        return False
+    
+    @staticmethod
+    def get_field_type_name(field_type: int) -> str:
+        """Convert field type enum to string name (e.g., TYPE_MESSAGE)."""
+        # Map the enum value to its string name
+        type_names = {
+            descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE: 'TYPE_DOUBLE',
+            descriptor_pb2.FieldDescriptorProto.TYPE_FLOAT: 'TYPE_FLOAT',
+            descriptor_pb2.FieldDescriptorProto.TYPE_INT64: 'TYPE_INT64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_UINT64: 'TYPE_UINT64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_INT32: 'TYPE_INT32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_FIXED64: 'TYPE_FIXED64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_FIXED32: 'TYPE_FIXED32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_BOOL: 'TYPE_BOOL',
+            descriptor_pb2.FieldDescriptorProto.TYPE_STRING: 'TYPE_STRING',
+            descriptor_pb2.FieldDescriptorProto.TYPE_GROUP: 'TYPE_GROUP',
+            descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE: 'TYPE_MESSAGE',
+            descriptor_pb2.FieldDescriptorProto.TYPE_BYTES: 'TYPE_BYTES',
+            descriptor_pb2.FieldDescriptorProto.TYPE_UINT32: 'TYPE_UINT32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_ENUM: 'TYPE_ENUM',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SFIXED32: 'TYPE_SFIXED32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SFIXED64: 'TYPE_SFIXED64',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SINT32: 'TYPE_SINT32',
+            descriptor_pb2.FieldDescriptorProto.TYPE_SINT64: 'TYPE_SINT64',
+        }
+        return type_names[field_type] if field_type in type_names else f'TYPE_UNKNOWN_{field_type}'
+    
+    @staticmethod
+    def get_field_label_name(field_label: int) -> str:
+        """Convert field label enum to string name (e.g., LABEL_REPEATED)."""
+        label_names = {
+            descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL: 'LABEL_OPTIONAL',
+            descriptor_pb2.FieldDescriptorProto.LABEL_REQUIRED: 'LABEL_REQUIRED',
+            descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED: 'LABEL_REPEATED',
+        }
+        return label_names[field_label] if field_label in label_names else f'LABEL_UNKNOWN_{field_label}'
+    
+    @staticmethod
+    def uses_optional(field: descriptor_pb2.FieldDescriptorProto, syntax: str) -> bool:
+        """Determine if a field should use std::optional."""
+        if syntax == 'proto2':
+            # Proto2: REQUIRED and OPTIONAL fields use std::optional
+            return field.label in (descriptor_pb2.FieldDescriptorProto.LABEL_REQUIRED,
+                                   descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL)
+        else:  # proto3
+            # Proto3: Only explicitly optional fields use std::optional
+            # Check for proto3_optional flag (set on explicit optional fields)
+            return field.proto3_optional if hasattr(field, 'proto3_optional') else False
     
     def setup_templates(self):
         """Set up Jinja2 templates for code generation."""
@@ -112,64 +193,63 @@ namespace litepb {
         self.env.globals['generate_serializer_impl'] = self.generate_serializer_impl
         self.env.globals['generate_rpc_service'] = self.generate_rpc_service
     
-    def generate_header(self, proto: Dict[str, Any], filename: str) -> str:
+    def generate_header(self, file_proto: descriptor_pb2.FileDescriptorProto, filename: str) -> str:
         """Generate C++ header file content."""
-        self.current_proto = proto  # Set context for type generation
+        self.current_proto = file_proto  # Set context for type generation
         template = self.env.get_template('header')
         
         # Convert imports to include paths
         import_includes = []
-        for imp in proto.get('imports', []):
-            proto_path = imp['path']
+        for dependency in file_proto.dependency:
             # Skip rpc_options.proto - it's only for compile-time extension field definitions
             # (Runtime fields like msg_id and message_type are in rpc_protocol.proto/RpcMessage)
-            if 'rpc_options.proto' in proto_path:
+            if 'rpc_options.proto' in dependency:
                 continue
             # Convert "path/to/file.proto" to "path/to/file.pb.h"
-            include_path = proto_path.replace('.proto', '.pb.h')
+            include_path = dependency.replace('.proto', '.pb.h')
             import_includes.append(include_path)
         
         # Sort messages in topological order to avoid forward declaration issues
-        messages = proto.get('messages', [])
+        messages = list(file_proto.message_type)
         sorted_messages = self._topological_sort_messages(messages)
 
         # Prepare context
         context = {
             'header_guard': self.get_header_guard(filename),
-            'package': proto.get('package', ''),
-            'namespace_parts': self.get_namespace_parts(proto.get('package', '')),
-            'namespace_prefix': self.get_namespace_prefix(proto.get('package', '')),
+            'package': file_proto.package if file_proto.package else '',
+            'namespace_parts': self.get_namespace_parts(file_proto.package if file_proto.package else ''),
+            'namespace_prefix': self.get_namespace_prefix(file_proto.package if file_proto.package else ''),
             'imports': import_includes,
-            'enums': proto.get('enums', []),
+            'enums': list(file_proto.enum_type),
             'messages': sorted_messages,
-            'services': proto.get('services', []),
+            'services': list(file_proto.service),
         }
         
         return template.render(**context)
     
-    def generate_implementation(self, proto: Dict[str, Any], filename: str) -> str:
+    def generate_implementation(self, file_proto: descriptor_pb2.FileDescriptorProto, filename: str) -> str:
         """Generate C++ implementation file content."""
-        self.current_proto = proto  # Set context for type generation
+        self.current_proto = file_proto  # Set context for type generation
         template = self.env.get_template('source')
         
         # Prepare context
         context = {
             'include_file': self.get_include_filename(filename),
-            'namespace_prefix': self.get_namespace_prefix(proto.get('package', '')),
-            'messages': proto.get('messages', []),
+            'namespace_prefix': self.get_namespace_prefix(file_proto.package if file_proto.package else ''),
+            'messages': list(file_proto.message_type),
         }
         
         return template.render(**context)
     
-    def generate_enum(self, enum: Dict[str, Any], indent: int = 0) -> str:
+    def generate_enum(self, enum_proto: descriptor_pb2.EnumDescriptorProto, indent: int = 0) -> str:
         """Generate enum definition."""
         ind = '    ' * indent
         lines = []
         
-        lines.append(f'{ind}enum class {enum["name"]} : int32_t {{')
+        lines.append(f'{ind}enum class {enum_proto.name} : int32_t {{')
         
-        for value in enum['values']:
-            lines.append(f'{ind}    {value["name"]} = {value["number"]},')
+        for value in enum_proto.value:
+            lines.append(f'{ind}    {value.name} = {value.number},')
         
         lines.append(f'{ind}}};')
         
@@ -201,128 +281,17 @@ namespace litepb {
         
         return full_type
     
-    def generate_message(self, message: Dict[str, Any], indent: int = 0) -> str:
-        """Generate message struct definition."""
+    def generate_message(self, message: descriptor_pb2.DescriptorProto, indent: int = 0) -> str:
+        """Generate message struct definition (legacy method, prefer generate_message_definition)."""
+        # Just delegate to generate_message_definition and adjust indentation
+        definition = self.generate_message_definition(message)
+        if indent == 0:
+            return definition
+        
+        # Add indentation
         ind = '    ' * indent
-        lines = []
-        
-        lines.append(f'{ind}struct {message["name"]} {{')
-        
-        # Get the current namespace and message context
-        package = self.current_proto.get('package', '')
-        package_ns = package.replace('.', '::') if package else ''
-        msg_fqn = message.get('full_name', message['name'])
-        msg_cpp_fqn = msg_fqn.replace('.', '::')
-        syntax = self.current_proto.get('syntax', 'proto2')
-
-        # Nested enums
-        for nested_enum in message.get('nested_enums', []):
-            enum_code = self.generate_enum(nested_enum, indent + 1)
-            lines.append(enum_code)
-            lines.append('')
-        
-        # Forward declare nested messages
-        for nested_msg in message.get('nested_messages', []):
-            lines.append(f'{ind}    struct {nested_msg["name"]};')
-        if message.get('nested_messages'):
-            lines.append('')
-        
-        # Nested messages (define them after forward declarations)
-        for nested_msg in message.get('nested_messages', []):
-            msg_code = self.generate_message(nested_msg, indent + 1)
-            lines.append(msg_code)
-            lines.append('')
-        
-        # Regular fields - handle proto2 vs proto3 semantics
-        for field in message.get('fields', []):
-            field_type = field.get('type')
-            
-            # Determine if this field should use std::optional
-            # Proto2: REQUIRED and OPTIONAL fields use std::optional for presence tracking
-            # Proto3: Only explicitly optional fields use std::optional
-            # Proto3 IMPLICIT fields (regular singular fields) do NOT use std::optional
-            use_optional = False
-            if syntax == 'proto2':
-                use_optional = field['label'] in ('REQUIRED', 'OPTIONAL')
-            else:  # proto3
-                # In proto3, only explicitly optional fields use std::optional
-                # IMPLICIT label means regular proto3 field without explicit optional
-                use_optional = field['label'] == 'OPTIONAL'
-
-            if field_type == 'TYPE_GROUP':
-                # Handle group fields specially
-                group_name = self._get_group_type_name(field.get('type_name', ''))
-                if field['label'] == 'REPEATED':
-                    cpp_type = f'std::vector<{group_name}>'
-                elif use_optional:
-                    cpp_type = f'std::optional<{group_name}>'
-                else:
-                    cpp_type = group_name
-            elif field_type in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                # Get the qualified type from TypeMapper
-                type_name = field.get('type_name', '')
-                qualified = TypeMapper.qualify_type_name(type_name, package, msg_fqn)
-                # Simplify it based on context
-                simple_type = self.simplify_type_in_context(qualified, package_ns, msg_cpp_fqn)
-                
-                # Handle containers and optional semantics
-                if field['label'] == 'REPEATED':
-                    cpp_type = f'std::vector<{simple_type}>'
-                elif use_optional:
-                    cpp_type = f'std::optional<{simple_type}>'
-                else:
-                    # Proto3 regular fields are direct types
-                    cpp_type = simple_type
-            else:
-                # For scalar types, handle proto2 vs proto3 semantics
-                base_type = TypeMapper.get_cpp_type(field_type)
-
-                if field['label'] == 'REPEATED':
-                    cpp_type = f'std::vector<{base_type}>'
-                elif use_optional:
-                    cpp_type = f'std::optional<{base_type}>'
-                else:
-                    # Proto3 regular fields are direct types
-                    cpp_type = base_type
-
-            default_val = self.get_field_default(field)
-            if default_val:
-                lines.append(f'{ind}    {cpp_type} {field["name"]} = {default_val};')
-            else:
-                lines.append(f'{ind}    {cpp_type} {field["name"]};')
-        
-        # Map fields - simplify value types
-        for map_field in message.get('maps', []):
-            key_type = TypeMapper.get_cpp_type(map_field['key_type'])
-            
-            if map_field['value_type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                value_name = map_field.get('value_type_name', '')
-                qualified = TypeMapper.qualify_type_name(value_name, package, msg_fqn)
-                value_type = self.simplify_type_in_context(qualified, package_ns, msg_cpp_fqn)
-            else:
-                value_type = TypeMapper.get_cpp_type(map_field['value_type'])
-            
-            cpp_type = f'std::unordered_map<{key_type}, {value_type}>'
-            lines.append(f'{ind}    {cpp_type} {map_field["name"]};')
-        
-        # Oneof fields - simplify member types
-        for oneof in message.get('oneofs', []):
-            variant_types = ['std::monostate']
-            for field in oneof['fields']:
-                if field['type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                    type_name = field.get('type_name', '')
-                    qualified = TypeMapper.qualify_type_name(type_name, package, msg_fqn)
-                    field_type = self.simplify_type_in_context(qualified, package_ns, msg_cpp_fqn)
-                else:
-                    field_type = TypeMapper.get_cpp_type(field['type'])
-                variant_types.append(field_type)
-            
-            oneof_type = f'std::variant<{", ".join(variant_types)}>'
-            lines.append(f'{ind}    {oneof_type} {oneof["name"]};')
-        
-        lines.append(f'{ind}}};')
-        
-        return '\n'.join(lines)
+        lines = definition.split('\n')
+        return '\n'.join(f'{ind}{line}' if line.strip() else '' for line in lines)
     
     def _get_group_type_name(self, type_name: str) -> str:
         """Extract the group type name from a type_name."""
@@ -332,47 +301,52 @@ namespace litepb {
         parts = type_name.split('.')
         return parts[-1] if parts else 'UnknownGroup'
 
-    def generate_message_declaration(self, message: Dict[str, Any]) -> str:
+    def generate_message_declaration(self, message: descriptor_pb2.DescriptorProto) -> str:
         """Generate forward declaration for a message and its nested types."""
         lines = []
 
         # Forward declare this message
-        lines.append(f'struct {message["name"]};')
+        lines.append(f'struct {message.name};')
 
-        # Recursively declare nested messages
-        for nested_msg in message.get('nested_messages', []):
-            nested_lines = self.generate_message_declaration(nested_msg)
-            lines.extend(nested_lines.split('\n'))
+        # Recursively declare nested messages (except map entries)
+        for nested_msg in message.nested_type:
+            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                nested_lines = self.generate_message_declaration(nested_msg)
+                lines.extend(nested_lines.split('\n'))
 
         return '\n'.join(lines)
 
-    def generate_message_definition(self, message: Dict[str, Any]) -> str:
+    def generate_message_definition(self, message: descriptor_pb2.DescriptorProto) -> str:
         """Generate complete definition for a message."""
+        assert self.current_proto is not None, "current_proto must be set before calling generate_message_definition"
         lines = []
 
         # Get context information
-        package = self.current_proto.get('package', '')
+        package = self.current_proto.package if self.current_proto.package else ''
         package_ns = package.replace('.', '::') if package else ''
-        msg_fqn = message.get('full_name', message['name'])
+        # Build full message name from current context
+        msg_fqn = f"{package}.{message.name}" if package else message.name
         msg_cpp_fqn = msg_fqn.replace('.', '::')
-        syntax = self.current_proto.get('syntax', 'proto2')
+        syntax = self.current_proto.syntax if self.current_proto.syntax else 'proto2'
 
-        lines.append(f'struct {message["name"]} {{')
+        lines.append(f'struct {message.name} {{')
 
-        # Nested enums first
-        for nested_enum in message.get('nested_enums', []):
+        # Nested enums first (but not map entries)
+        for nested_enum in message.enum_type:
             enum_code = self.generate_enum(nested_enum, 1)
             lines.append(enum_code)
             lines.append('')
 
-        # Forward declare all nested messages
-        for nested_msg in message.get('nested_messages', []):
-            lines.append(f'    struct {nested_msg["name"]};')
-        if message.get('nested_messages'):
+        # Forward declare all nested messages (except map entries)
+        non_map_nested = [nt for nt in message.nested_type 
+                         if not (nt.HasField('options') and nt.options.map_entry)]
+        if non_map_nested:
+            for nested_msg in non_map_nested:
+                lines.append(f'    struct {nested_msg.name};')
             lines.append('')
 
         # Nested message definitions (now they can reference each other)
-        for nested_msg in message.get('nested_messages', []):
+        for nested_msg in non_map_nested:
             nested_def = self.generate_message_definition(nested_msg)
             # Indent the nested definition
             nested_lines = nested_def.split('\n')
@@ -382,72 +356,53 @@ namespace litepb {
                 else:
                     lines.append('')
 
-        # Regular fields
-        for field in message.get('fields', []):
-            field_type = field.get('type')
+        # Get regular fields (not in oneofs, not map entries)
+        regular_fields = self._get_non_oneof_fields(message)
+        
+        for field in regular_fields:
+            field_type = self.get_field_type_name(field.type)
 
             # Determine if this field should use std::optional
-            # Proto2: REQUIRED and OPTIONAL fields use std::optional for presence tracking
-            # Proto3: Only explicitly optional fields use std::optional
-            # Proto3 IMPLICIT fields (regular singular fields) do NOT use std::optional
-            use_optional = False
-            if syntax == 'proto2':
-                use_optional = field['label'] in ('REQUIRED', 'OPTIONAL')
-            else:  # proto3
-                # In proto3, only explicitly optional fields use std::optional
-                # IMPLICIT label means regular proto3 field without explicit optional
-                use_optional = field['label'] == 'OPTIONAL'
+            use_optional = self.uses_optional(field, syntax)
 
             if field_type == 'TYPE_GROUP':
-                # Handle group fields specially
-                group_name = self._get_group_type_name(field.get('type_name', ''))
-                if field['label'] == 'REPEATED':
+                group_name = self._get_group_type_name(field.type_name)
+                if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED:
                     cpp_type = f'std::vector<{group_name}>'
                 elif use_optional:
                     cpp_type = f'std::optional<{group_name}>'
                 else:
                     cpp_type = group_name
             elif field_type in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                # Get the qualified type from TypeMapper
-                type_name = field.get('type_name', '')
+                type_name = field.type_name
                 qualified = TypeMapper.qualify_type_name(type_name, package, msg_fqn)
-                # Simplify it based on context
                 simple_type = self.simplify_type_in_context(qualified, package_ns, msg_cpp_fqn)
 
-                # Handle containers and proto2/proto3 semantics
-                if field['label'] == 'REPEATED':
+                if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED:
                     cpp_type = f'std::vector<{simple_type}>'
                 elif use_optional:
                     cpp_type = f'std::optional<{simple_type}>'
-                elif syntax == 'proto2' and field['label'] == 'REQUIRED':
-                    # In proto2, required fields use std::optional for presence tracking
-                    cpp_type = f'std::optional<{simple_type}>'
                 else:
-                    # Proto3 regular fields (not optional, not repeated) are direct types
                     cpp_type = simple_type
             else:
-                # For scalar types, handle proto2 vs proto3 semantics
                 base_type = TypeMapper.get_cpp_type(field_type)
 
-                if field['label'] == 'REPEATED':
+                if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED:
                     cpp_type = f'std::vector<{base_type}>'
                 elif use_optional:
                     cpp_type = f'std::optional<{base_type}>'
-                elif syntax == 'proto2' and field['label'] == 'REQUIRED':
-                    # In proto2, required fields use std::optional for presence tracking
-                    cpp_type = f'std::optional<{base_type}>'
                 else:
-                    # Proto3 regular fields (not optional, not repeated) are direct types
                     cpp_type = base_type
 
             default_val = self.get_field_default(field)
             if default_val:
-                lines.append(f'    {cpp_type} {field["name"]} = {default_val};')
+                lines.append(f'    {cpp_type} {field.name} = {default_val};')
             else:
-                lines.append(f'    {cpp_type} {field["name"]};')
+                lines.append(f'    {cpp_type} {field.name};')
 
         # Map fields
-        for map_field in message.get('maps', []):
+        maps = self._extract_maps_from_message(message)
+        for map_field in maps:
             key_type = TypeMapper.get_cpp_type(map_field['key_type'])
 
             if map_field['value_type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
@@ -461,22 +416,21 @@ namespace litepb {
             lines.append(f'    {cpp_type} {map_field["name"]};')
 
         # Oneof fields - deduplicate types to avoid std::variant errors
-        for oneof in message.get('oneofs', []):
+        oneofs = self._extract_oneofs_from_message(message)
+        for oneof in oneofs:
             variant_types = ['std::monostate']
             seen_types = set()
-            type_to_index = {}  # Map from type to variant index
             
             for field in oneof['fields']:
-                if field['type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                    type_name = field.get('type_name', '')
+                if field.type in (descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE, descriptor_pb2.FieldDescriptorProto.TYPE_ENUM):
+                    type_name = field.type_name
                     qualified = TypeMapper.qualify_type_name(type_name, package, msg_fqn)
                     field_type = self.simplify_type_in_context(qualified, package_ns, msg_cpp_fqn)
                 else:
-                    field_type = TypeMapper.get_cpp_type(field['type'])
+                    field_type = TypeMapper.get_cpp_type(self.get_field_type_name(field.type))
                 
                 if field_type not in seen_types:
                     variant_types.append(field_type)
-                    type_to_index[field_type] = len(variant_types) - 1
                     seen_types.add(field_type)
 
             oneof_type = f'std::variant<{", ".join(variant_types)}>'
@@ -486,18 +440,19 @@ namespace litepb {
 
         return '\n'.join(lines)
 
-    def generate_serializer_spec(self, message: Dict[str, Any], ns_prefix: str, inline: bool) -> str:
+    def generate_serializer_spec(self, message: descriptor_pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
         """Generate serializer specialization for a message and its nested messages."""
         lines = []
         
-        # First, recursively generate serializers for nested messages
-        for nested_msg in message.get('nested_messages', []):
-            nested_prefix = f'{ns_prefix}::{message["name"]}' if ns_prefix else message["name"]
-            lines.append(self.generate_serializer_spec(nested_msg, nested_prefix, inline))
-            lines.append('')
+        # First, recursively generate serializers for nested messages (but not map entries)
+        for nested_msg in message.nested_type:
+            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+                lines.append(self.generate_serializer_spec(nested_msg, nested_prefix, inline))
+                lines.append('')
         
         # Then generate serializer for this message
-        msg_type = f'{ns_prefix}::{message["name"]}' if ns_prefix else message["name"]
+        msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
         inline_str = 'inline ' if inline else ''
         
         lines.append(f'template<>')
@@ -507,14 +462,21 @@ namespace litepb {
         lines.append(f'    {inline_str}static bool serialize(const {msg_type}& value, litepb::OutputStream& stream) {{')
         lines.append('        litepb::ProtoWriter writer(stream);')
         
-        # Generate write code for each field
-        for field in message.get('fields', []):
+        # Get non-oneof, non-map fields
+        regular_fields = self._get_non_oneof_fields(message)
+        
+        # Generate write code for each regular field
+        for field in regular_fields:
             lines.append(self.generate_field_write(field, message))
         
-        for map_field in message.get('maps', []):
+        # Generate write code for maps
+        maps = self._extract_maps_from_message(message)
+        for map_field in maps:
             lines.append(self.generate_map_write(map_field, message))
         
-        for oneof in message.get('oneofs', []):
+        # Generate write code for oneofs
+        oneofs = self._extract_oneofs_from_message(message)
+        for oneof in oneofs:
             lines.append(self.generate_oneof_write(oneof, message))
         
         lines.append('        return true;')
@@ -530,14 +492,16 @@ namespace litepb {
         lines.append('            ')
         lines.append('            switch (field_number) {')
         
-        # Generate read cases for each field
-        for field in message.get('fields', []):
+        # Generate read cases for each regular field
+        for field in regular_fields:
             lines.append(self.generate_field_read(field, message))
         
-        for map_field in message.get('maps', []):
+        # Generate read cases for maps
+        for map_field in maps:
             lines.append(self.generate_map_read(map_field, message))
         
-        for oneof in message.get('oneofs', []):
+        # Generate read cases for oneofs
+        for oneof in oneofs:
             for field in oneof['fields']:
                 lines.append(self.generate_oneof_field_read(field, oneof, message))
         
@@ -558,21 +522,18 @@ namespace litepb {
         # All serializers are now inline in the header, so no need for separate implementations
         return ""
     
-    def generate_field_write(self, field: Dict[str, Any], message: Dict[str, Any]) -> str:
+    def generate_field_write(self, field: descriptor_pb2.FieldDescriptorProto, message: descriptor_pb2.DescriptorProto) -> str:
         """Generate write code for a field."""
-        field_num = field['number']
-        field_name = field['name']
-        field_type = field['type']
-        syntax = self.current_proto.get('syntax', 'proto2')
+        assert self.current_proto is not None, "current_proto must be set before calling generate_field_write"
+        field_num = field.number
+        field_name = field.name
+        field_type = self.get_field_type_name(field.type)
+        syntax = self.current_proto.syntax if self.current_proto.syntax else 'proto2'
 
         # Check if field uses std::optional wrapper
-        # Proto2: both required and optional fields use std::optional
-        # Proto3: only explicitly optional fields use std::optional
-        is_proto2_with_optional = (syntax == 'proto2' and field['label'] in ('REQUIRED', 'OPTIONAL'))
-        is_proto3_with_optional = (syntax == 'proto3' and field['label'] == 'OPTIONAL')
-        use_optional_field = is_proto2_with_optional or is_proto3_with_optional
+        use_optional_field = self.uses_optional(field, syntax)
 
-        if field['label'] == 'REPEATED':
+        if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED:
             # Repeated field - check if it should be packed
             lines = []
             
@@ -681,7 +642,8 @@ namespace litepb {
             lines = []
             
             # Check if field has non-default value (proto3 optimization)
-            if message.get('syntax') == 'proto3':
+            msg_syntax = self.current_proto.syntax if self.current_proto.syntax else 'proto2'
+            if msg_syntax == 'proto3':
                 default_check = self.get_default_check(field)
                 if default_check:
                     lines.append(f'        if ({default_check}) {{')
@@ -716,29 +678,26 @@ namespace litepb {
                 else:
                     lines.append(f'        {indent}writer.{method}(value.{field_name});')
             
-            if message.get('syntax') == 'proto3' and self.get_default_check(field):
+            if msg_syntax == 'proto3' and self.get_default_check(field):
                 lines.append('        }')
             
             return '\n'.join(lines)
     
-    def generate_field_read(self, field: Dict[str, Any], message: Dict[str, Any]) -> str:
+    def generate_field_read(self, field: descriptor_pb2.FieldDescriptorProto, message: descriptor_pb2.DescriptorProto) -> str:
         """Generate read case for a field."""
-        field_num = field['number']
-        field_name = field['name']
-        field_type = field['type']
-        syntax = self.current_proto.get('syntax', 'proto2')
+        assert self.current_proto is not None, "current_proto must be set before calling generate_field_read"
+        field_num = field.number
+        field_name = field.name
+        field_type = self.get_field_type_name(field.type)
+        syntax = self.current_proto.syntax if self.current_proto.syntax else 'proto2'
 
         # Check if field uses std::optional wrapper
-        # Proto2: both required and optional fields use std::optional for presence tracking
-        # Proto3: only explicitly optional fields use std::optional
-        is_proto2_with_optional = (syntax == 'proto2' and field['label'] in ('REQUIRED', 'OPTIONAL'))
-        is_proto3_with_optional = (syntax == 'proto3' and field['label'] == 'OPTIONAL')
-        use_optional_field = is_proto2_with_optional or is_proto3_with_optional
+        use_optional_field = self.uses_optional(field, syntax)
 
         lines = []
         lines.append(f'                case {field_num}: {{')
         
-        if field['label'] == 'REPEATED':
+        if field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED:
             # Repeated field - check if it can be packed
             can_be_packed = self.is_field_packed(field) or field_type in (
                 'TYPE_INT32', 'TYPE_INT64', 'TYPE_UINT32', 'TYPE_UINT64',
@@ -864,7 +823,7 @@ namespace litepb {
         
         return '\n'.join(lines)
     
-    def generate_map_write(self, map_field: Dict[str, Any], message: Dict[str, Any]) -> str:
+    def generate_map_write(self, map_field: Dict[str, Any], message: descriptor_pb2.DescriptorProto) -> str:
         """Generate write code for a map field."""
         # Maps are encoded as repeated message fields
         lines = []
@@ -919,7 +878,7 @@ namespace litepb {
         
         return '\n'.join(lines)
     
-    def generate_map_read(self, map_field: Dict[str, Any], message: Dict[str, Any]) -> str:
+    def generate_map_read(self, map_field: Dict[str, Any], message: descriptor_pb2.DescriptorProto) -> str:
         """Generate read case for a map field."""
         lines = []
         field_num = map_field['number']
@@ -935,7 +894,8 @@ namespace litepb {
         # Declare key and value variables
         key_type = TypeMapper.get_cpp_type(map_field['key_type'])
         if map_field['value_type'] in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-            value_type = TypeMapper.qualify_type_name(map_field['value_type_name'], message.get('package', ''))
+            pkg = self.current_proto.package if self.current_proto and self.current_proto.package else ''
+            value_type = TypeMapper.qualify_type_name(map_field['value_type_name'], pkg)
         else:
             value_type = TypeMapper.get_cpp_type(map_field['value_type'])
         
@@ -1005,7 +965,7 @@ namespace litepb {
         
         return '\n'.join(lines)
     
-    def generate_oneof_write(self, oneof: Dict[str, Any], message: Dict[str, Any]) -> str:
+    def generate_oneof_write(self, oneof: Dict[str, Any], message: descriptor_pb2.DescriptorProto) -> str:
         """Generate write code for a oneof field."""
         lines = []
         oneof_name = oneof['name']
@@ -1014,20 +974,21 @@ namespace litepb {
         lines.append('            using T = std::decay_t<decltype(oneof_val)>;')
         
         for i, field in enumerate(oneof['fields']):
-            field_type_cpp = TypeMapper.get_cpp_type(field['type']) if field['type'] not in ('TYPE_MESSAGE', 'TYPE_ENUM') else TypeMapper.qualify_type_name(field['type_name'], message.get('package', ''))
+            pkg = self.current_proto.package if self.current_proto and self.current_proto.package else ''
+            field_type_cpp = TypeMapper.get_cpp_type(self.get_field_type_name(field.type)) if self.get_field_type_name(field.type) not in ('TYPE_MESSAGE', 'TYPE_ENUM') else TypeMapper.qualify_type_name(field.type_name, pkg)
             lines.append(f'            {"else " if i > 0 else ""}if constexpr (std::is_same_v<T, {field_type_cpp}>) {{')
-            lines.append(f'                writer.write_tag({field["number"]}, {TypeMapper.get_wire_type(field["type"])});')
+            lines.append(f'                writer.write_tag({field.number}, {TypeMapper.get_wire_type(self.get_field_type_name(field.type))});')
             
-            if field['type'] == 'TYPE_MESSAGE':
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE:
                 lines.append('                litepb::serialize(oneof_val, stream);')
-            elif field['type'] == 'TYPE_ENUM':
+            elif field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append('                writer.write_varint(static_cast<uint64_t>(oneof_val));')
             else:
-                method = TypeMapper.get_serialization_method(field['type'])
+                method = TypeMapper.get_serialization_method(self.get_field_type_name(field.type))
                 if method == 'write_bytes':
                     lines.append(f'                writer.{method}(oneof_val.data(), oneof_val.size());')
                 elif method == 'write_varint':
-                    if field['type'] == 'TYPE_BOOL':
+                    if self.get_field_type_name(field.type) == 'TYPE_BOOL':
                         lines.append(f'                writer.{method}(oneof_val ? 1 : 0);')
                     else:
                         lines.append(f'                writer.{method}(static_cast<uint64_t>(oneof_val));')
@@ -1040,38 +1001,40 @@ namespace litepb {
         
         return '\n'.join(lines)
     
-    def generate_oneof_field_read(self, field: Dict[str, Any], oneof: Dict[str, Any], message: Dict[str, Any]) -> str:
+    def generate_oneof_field_read(self, field: descriptor_pb2.FieldDescriptorProto, oneof: Dict[str, Any], message: descriptor_pb2.DescriptorProto) -> str:
         """Generate read case for a oneof field."""
         lines = []
-        field_num = field['number']
+        field_num = field.number
         oneof_name = oneof['name']
         
         lines.append(f'                case {field_num}: {{')
         
-        if field['type'] == 'TYPE_MESSAGE':
-            field_type = TypeMapper.qualify_type_name(field['type_name'], message.get('package', ''))
+        if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE:
+            pkg = self.current_proto.package if self.current_proto and self.current_proto.package else ''
+            field_type = TypeMapper.qualify_type_name(field.type_name, pkg)
             lines.append(f'                    {field_type} oneof_val;')
             lines.append('                    if (!litepb::parse(oneof_val, stream)) return false;')
             lines.append(f'                    value.{oneof_name} = oneof_val;')
-        elif field['type'] == 'TYPE_ENUM':
-            field_type = TypeMapper.qualify_type_name(field['type_name'], message.get('package', ''))
+        elif field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM:
+            pkg = self.current_proto.package if self.current_proto and self.current_proto.package else ''
+            field_type = TypeMapper.qualify_type_name(field.type_name, pkg)
             lines.append('                    uint64_t enum_val;')
             lines.append('                    if (!reader.read_varint(enum_val)) return false;')
             lines.append(f'                    value.{oneof_name} = static_cast<{field_type}>(enum_val);')
         else:
-            cpp_type = TypeMapper.get_cpp_type(field['type'])
-            method = TypeMapper.get_deserialization_method(field['type'])
+            cpp_type = TypeMapper.get_cpp_type(self.get_field_type_name(field.type))
+            method = TypeMapper.get_deserialization_method(self.get_field_type_name(field.type))
             if method == 'read_varint':
                 lines.append('                    uint64_t oneof_varint;')
                 lines.append(f'                    if (!reader.{method}(oneof_varint)) return false;')
-                if field['type'] == 'TYPE_BOOL':
+                if self.get_field_type_name(field.type) == 'TYPE_BOOL':
                     lines.append(f'                    value.{oneof_name} = (oneof_varint != 0);')
                 else:
                     lines.append(f'                    value.{oneof_name} = static_cast<{cpp_type}>(oneof_varint);')
-            elif field['type'] in ('TYPE_SFIXED32', 'TYPE_SFIXED64'):
+            elif self.get_field_type_name(field.type) in ('TYPE_SFIXED32', 'TYPE_SFIXED64'):
                 # sfixed types need to read as unsigned then convert
-                temp_type = 'uint32_t' if field['type'] == 'TYPE_SFIXED32' else 'uint64_t'
-                read_method = 'read_fixed32' if field['type'] == 'TYPE_SFIXED32' else 'read_fixed64'
+                temp_type = 'uint32_t' if self.get_field_type_name(field.type) == 'TYPE_SFIXED32' else 'uint64_t'
+                read_method = 'read_fixed32' if self.get_field_type_name(field.type) == 'TYPE_SFIXED32' else 'read_fixed64'
                 lines.append(f'                    {temp_type} temp_unsigned;')
                 lines.append(f'                    if (!reader.{read_method}(temp_unsigned)) return false;')
                 lines.append(f'                    {cpp_type} oneof_val;')
@@ -1087,14 +1050,109 @@ namespace litepb {
         
         return '\n'.join(lines)
     
-    def _get_message_dependencies(self, message: Dict[str, Any], all_messages: List[Dict[str, Any]]) -> List[str]:
+    def _extract_maps_from_message(self, message: descriptor_pb2.DescriptorProto) -> List[Dict[str, Any]]:
+        """Extract map field information from a message descriptor."""
+        maps = []
+        
+        # Find map entry nested types
+        map_entries = {}
+        for nested_type in message.nested_type:
+            if nested_type.HasField('options') and nested_type.options.map_entry:
+                map_entries[nested_type.name] = nested_type
+        
+        # Find fields that use these map entries
+        for field in message.field:
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                type_name = field.type_name.split('.')[-1]
+                if type_name in map_entries:
+                    map_entry = map_entries[type_name]
+                    # Map entries have exactly 2 fields: key (number 1) and value (number 2)
+                    key_field = None
+                    value_field = None
+                    for entry_field in map_entry.field:
+                        if entry_field.number == 1:
+                            key_field = entry_field
+                        elif entry_field.number == 2:
+                            value_field = entry_field
+                    
+                    if key_field and value_field:
+                        maps.append({
+                            'name': field.name,
+                            'number': field.number,
+                            'key_type': self.get_field_type_name(key_field.type),
+                            'value_type': self.get_field_type_name(value_field.type),
+                            'value_type_name': value_field.type_name if value_field.type in (
+                                descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+                                descriptor_pb2.FieldDescriptorProto.TYPE_ENUM
+                            ) else ''
+                        })
+        
+        return maps
+    
+    def _extract_oneofs_from_message(self, message: descriptor_pb2.DescriptorProto) -> List[Dict[str, Any]]:
+        """Extract oneof information from a message descriptor."""
+        oneofs = []
+        
+        # Build a map of oneof index to fields
+        oneof_fields_map = {}
+        for field in message.field:
+            if field.HasField('oneof_index'):
+                # Proto3 optional fields have proto3_optional=True and use synthetic oneofs internally
+                # They should NOT be treated as oneof fields
+                is_proto3_optional = field.proto3_optional if hasattr(field, 'proto3_optional') else False
+                if is_proto3_optional:
+                    continue  # Skip proto3 optional fields
+                
+                oneof_idx = field.oneof_index
+                if oneof_idx not in oneof_fields_map:
+                    oneof_fields_map[oneof_idx] = []
+                oneof_fields_map[oneof_idx].append(field)
+        
+        # Create oneof structures
+        for idx, oneof_decl in enumerate(message.oneof_decl):
+            if idx in oneof_fields_map:
+                oneofs.append({
+                    'name': oneof_decl.name,
+                    'fields': oneof_fields_map[idx]
+                })
+        
+        return oneofs
+    
+    def _get_non_oneof_fields(self, message: descriptor_pb2.DescriptorProto) -> List[descriptor_pb2.FieldDescriptorProto]:
+        """Get all fields that are not part of a oneof or map entry."""
+        # Get map entry names
+        map_entry_names = set()
+        for nested_type in message.nested_type:
+            if nested_type.HasField('options') and nested_type.options.map_entry:
+                map_entry_names.add(nested_type.name)
+        
+        # Filter fields
+        non_oneof_fields = []
+        for field in message.field:
+            # Skip oneof fields (but NOT proto3 optional fields which use synthetic oneofs)
+            if field.HasField('oneof_index'):
+                # Proto3 optional fields have proto3_optional=True and use synthetic oneofs internally
+                # They should be treated as regular optional fields, not oneofs
+                is_proto3_optional = field.proto3_optional if hasattr(field, 'proto3_optional') else False
+                if not is_proto3_optional:
+                    continue  # This is a real oneof field, skip it
+            # Skip map entry fields
+            if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                type_name = field.type_name.split('.')[-1]
+                if type_name in map_entry_names:
+                    continue
+            non_oneof_fields.append(field)
+        
+        return non_oneof_fields
+    
+    def _get_message_dependencies(self, message: descriptor_pb2.DescriptorProto, all_messages: List[descriptor_pb2.DescriptorProto]) -> List[str]:
         """Get list of message names that this message depends on."""
         dependencies = set()
 
-        # Check regular fields
-        for field in message.get('fields', []):
-            if field.get('type') in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                type_name = field.get('type_name', '')
+        # Check all fields
+        for field in message.field:
+            if field.type in (descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE, descriptor_pb2.FieldDescriptorProto.TYPE_ENUM):
+                type_name = field.type_name
                 # Extract the simple message name from the full type name
                 if type_name.startswith('.'):
                     type_name = type_name[1:]
@@ -1103,45 +1161,20 @@ namespace litepb {
 
                 # Only add dependency if it's another message in this file
                 for msg in all_messages:
-                    if msg['name'] == simple_name and msg['name'] != message['name']:
+                    if msg.name == simple_name and msg.name != message.name:
                         dependencies.add(simple_name)
-
-        # Check map fields
-        for map_field in message.get('maps', []):
-            if map_field.get('value_type') in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                type_name = map_field.get('value_type_name', '')
-                if type_name.startswith('.'):
-                    type_name = type_name[1:]
-                simple_name = type_name.split('.')[-1]
-
-                for msg in all_messages:
-                    if msg['name'] == simple_name and msg['name'] != message['name']:
-                        dependencies.add(simple_name)
-
-        # Check oneof fields
-        for oneof in message.get('oneofs', []):
-            for field in oneof.get('fields', []):
-                if field.get('type') in ('TYPE_MESSAGE', 'TYPE_ENUM'):
-                    type_name = field.get('type_name', '')
-                    if type_name.startswith('.'):
-                        type_name = type_name[1:]
-                    simple_name = type_name.split('.')[-1]
-
-                    for msg in all_messages:
-                        if msg['name'] == simple_name and msg['name'] != message['name']:
-                            dependencies.add(simple_name)
 
         return list(dependencies)
 
-    def _topological_sort_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _topological_sort_messages(self, messages: List[descriptor_pb2.DescriptorProto]) -> List[descriptor_pb2.DescriptorProto]:
         """Sort messages in topological order to avoid forward declaration issues."""
         # Create a map for quick lookup
-        msg_map = {msg['name']: msg for msg in messages}
+        msg_map = {msg.name: msg for msg in messages}
 
         # Build dependency graph
         dependencies = {}
         for msg in messages:
-            dependencies[msg['name']] = self._get_message_dependencies(msg, messages)
+            dependencies[msg.name] = self._get_message_dependencies(msg, messages)
 
         # Perform topological sort using Kahn's algorithm
         sorted_names = []
@@ -1176,24 +1209,26 @@ namespace litepb {
         # Return messages in sorted order
         return [msg_map[name] for name in sorted_names]
 
-    def get_field_default(self, field: Dict[str, Any]) -> Optional[str]:
+    def get_field_default(self, field: descriptor_pb2.FieldDescriptorProto) -> Optional[str]:
         """Get default value for field initialization."""
-        if field['label'] in ('REPEATED', 'OPTIONAL'):
+        if self.get_field_label_name(field.label) in ('LABEL_REPEATED', 'LABEL_OPTIONAL'):
             return None
         
-        if field.get('default_value'):
-            return TypeMapper.get_default_value(field, {'package': ''})
+        if field.HasField('default_value'):
+            # Use TypeMapper.get_default_value with descriptor objects
+            assert self.current_proto is not None, "current_proto must be set before calling get_field_default"
+            return TypeMapper.get_default_value(field, self.current_proto)
         
         # For proto3, most types have implicit defaults
-        if field['type'] == 'TYPE_ENUM':
-            return f'static_cast<{TypeMapper.qualify_type_name(field["type_name"], "")}>(0)'
+        if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM:
+            return f'static_cast<{TypeMapper.qualify_type_name(field.type_name, "")}>(0)'
         
-        return TypeMapper.DEFAULT_VALUES.get(field['type'])
+        return TypeMapper.DEFAULT_VALUES.get(self.get_field_type_name(field.type))
     
-    def get_default_check(self, field: Dict[str, Any]) -> Optional[str]:
+    def get_default_check(self, field: descriptor_pb2.FieldDescriptorProto) -> Optional[str]:
         """Get condition to check if field has non-default value (proto3 optimization)."""
-        field_name = field['name']
-        field_type = field['type']
+        field_name = field.name
+        field_type = self.get_field_type_name(field.type)
         
         # Don't check messages - they always need to be encoded if present
         if field_type == 'TYPE_MESSAGE':
@@ -1213,25 +1248,26 @@ namespace litepb {
         else:
             return f'value.{field_name} != {default_val}'
     
-    def is_field_packed(self, field: Dict[str, Any]) -> bool:
+    def is_field_packed(self, field: descriptor_pb2.FieldDescriptorProto) -> bool:
         """Determine if a repeated field should be packed."""
+        assert self.current_proto is not None, "current_proto must be set before calling is_field_packed"
         # Only repeated fields can be packed
-        if field['label'] != 'REPEATED':
+        if self.get_field_label_name(field.label) != 'LABEL_REPEATED':
             return False
         
-        field_type = field['type']
+        field_type = self.get_field_type_name(field.type)
         
         # Strings, bytes, messages are NEVER packed
         if field_type in ('TYPE_STRING', 'TYPE_BYTES', 'TYPE_MESSAGE', 'TYPE_GROUP'):
             return False
         
         # Check if field has explicit packed option
-        if 'packed' in field:
-            return field['packed']
+        if field.HasField('options') and field.options.HasField('packed'):
+            return field.options.packed
         
         # Proto3: All numeric repeated fields are packed by default
         # Proto2: Only packed if field has [packed = true] option (which we checked above)
-        syntax = self.current_proto.get('syntax', 'proto2')
+        syntax = self.current_proto.syntax if self.current_proto.syntax else 'proto2'
         if syntax == 'proto3':
             # In proto3, numeric/enum repeated fields are packed by default
             return field_type in (
@@ -1345,13 +1381,16 @@ namespace litepb {
             return ''
         return package.replace('.', '::')
     
-    def generate_rpc_service(self, service: Dict[str, Any], namespace_prefix: str) -> str:
+    def generate_rpc_service(self, service: descriptor_pb2.ServiceDescriptorProto, namespace_prefix: str) -> str:
         """Generate RPC service stubs (client, server interface, and registration function)."""
         lines = []
-        service_name = service['name']
+        service_name = service.name
+        
+        # Extract service options using parser
+        service_options = self.parser.extract_service_options(service)
         
         # Validate service_id: must be present and > 0
-        service_id = service['options'].get('service_id')
+        service_id = service_options.service_id
         if service_id is None:
             raise RuntimeError(
                 f"Service '{service_name}' is missing required 'service_id' option. "
@@ -1370,11 +1409,12 @@ namespace litepb {
         
         # Validate method_id: all methods must have method_id set
         method_ids = {}
-        for method in service['methods']:
-            method_id = method['options'].get('method_id')
+        for method in service.method:
+            method_options = self.parser.extract_method_options(method)
+            method_id = method_options.method_id
             if method_id is None:
                 raise RuntimeError(
-                    f"Method '{method['name']}' in service '{service_name}' is missing required "
+                    f"Method '{method.name}' in service '{service_name}' is missing required "
                     f"'method_id' option. Add: option (litepb.rpc.method_id) = <unique_id>;"
                 )
             
@@ -1382,16 +1422,17 @@ namespace litepb {
             if method_id in method_ids:
                 raise RuntimeError(
                     f"Duplicate method_id {method_id} in service '{service_name}': "
-                    f"methods '{method_ids[method_id]}' and '{method['name']}' have the same ID"
+                    f"methods '{method_ids[method_id]}' and '{method.name}' have the same ID"
                 )
-            method_ids[method_id] = method['name']
+            method_ids[method_id] = method.name
         
         # Separate methods by type (RPC vs fire-and-forget)
         regular_methods = []  # Request-response RPC methods
         fire_and_forget_methods = []  # Fire-and-forget events
         
-        for method in service['methods']:
-            is_fire_and_forget = method['options'].get('fire_and_forget', False)
+        for method in service.method:
+            method_options = self.parser.extract_method_options(method)
+            is_fire_and_forget = method_options.fire_and_forget
             
             if is_fire_and_forget:
                 fire_and_forget_methods.append(method)
@@ -1408,11 +1449,12 @@ namespace litepb {
         
         # Generate client RPC methods
         for method in regular_methods:
-            method_name = method['name']
-            method_id = method['options'].get('method_id')
-            input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
-            output_type = self._get_qualified_type_name(method['output_type'], namespace_prefix)
-            default_timeout = method['options'].get('default_timeout_ms', 5000)
+            method_options = self.parser.extract_method_options(method)
+            method_name = method.name
+            method_id = method_options.method_id
+            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
+            default_timeout = method_options.default_timeout_ms
             
             lines.append(f'    // service_id={service_id}, method_id={method_id}')
             lines.append(f'    void {method_name}(const {input_type}& request,')
@@ -1428,9 +1470,10 @@ namespace litepb {
         if fire_and_forget_methods:
             lines.append('    // Fire-and-forget event senders')
             for method in fire_and_forget_methods:
-                method_name = method['name']
-                method_id = method['options'].get('method_id')
-                input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
+                method_options = self.parser.extract_method_options(method)
+                method_name = method.name
+                method_id = method_options.method_id
+                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                 
                 lines.append(f'    // service_id={service_id}, method_id={method_id}')
                 lines.append(f'    bool {method_name}(const {input_type}& event, uint64_t dst_addr = 0) {{')
@@ -1442,9 +1485,10 @@ namespace litepb {
         if fire_and_forget_methods:
             lines.append('    // Event handler registration')
             for method in fire_and_forget_methods:
-                method_name = method['name']
-                method_id = method['options'].get('method_id')
-                input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
+                method_options = self.parser.extract_method_options(method)
+                method_name = method.name
+                method_id = method_options.method_id
+                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                 
                 lines.append(f'    // service_id={service_id}, method_id={method_id}')
                 lines.append(f'    void on{method_name}(std::function<void(uint64_t, const {input_type}&)> handler) {{')
@@ -1466,9 +1510,9 @@ namespace litepb {
         
         # Generate server virtual methods for regular RPC
         for method in regular_methods:
-            method_name = method['name']
-            input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
-            output_type = self._get_qualified_type_name(method['output_type'], namespace_prefix)
+            method_name = method.name
+            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
             
             lines.append(f'    virtual litepb::Result<{output_type}> {method_name}(')
             lines.append(f'        uint64_t src_addr,')
@@ -1488,8 +1532,8 @@ namespace litepb {
             
             # Generate handler methods for all fire-and-forget events
             for method in fire_and_forget_methods:
-                method_name = method['name']
-                input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
+                method_name = method.name
+                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                 
                 lines.append(f'    virtual void {method_name}Handler(uint64_t src_addr, const {input_type}& msg) {{}}')
                 lines.append('')
@@ -1505,10 +1549,11 @@ namespace litepb {
         
         # Register each regular RPC method
         for method in regular_methods:
-            method_name = method['name']
-            method_id = method['options'].get('method_id')
-            input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
-            output_type = self._get_qualified_type_name(method['output_type'], namespace_prefix)
+            method_options = self.parser.extract_method_options(method)
+            method_name = method.name
+            method_id = method_options.method_id
+            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
             
             lines.append('')
             lines.append(f'    // service_id={service_id}, method_id={method_id}')
@@ -1531,9 +1576,10 @@ namespace litepb {
             
             # Register each fire-and-forget event
             for method in fire_and_forget_methods:
-                method_name = method['name']
-                method_id = method['options'].get('method_id')
-                input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
+                method_options = self.parser.extract_method_options(method)
+                method_name = method.name
+                method_id = method_options.method_id
+                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                 
                 lines.append('')
                 lines.append(f'        // service_id={service_id}, method_id={method_id}')
