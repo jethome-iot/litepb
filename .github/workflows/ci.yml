@@ -69,10 +69,31 @@ jobs:
       - name: Run interop tests
         run: ./tests/cpp/interop/run_tests.sh
         
-  build-examples:
-    name: Build Examples
+  discover-examples:
+    name: Discover Examples
     runs-on: ubuntu-24.04
-    needs: prepare
+    outputs:
+      examples: ${{ steps.find.outputs.examples }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Find examples
+        id: find
+        run: |
+          # Find all platformio.ini files under examples/
+          examples=$(find examples -name "platformio.ini" -type f -exec dirname {} \; | jq -R -s -c 'split("\n")[:-1]')
+          echo "examples=$examples" >> $GITHUB_OUTPUT
+          echo "Found examples: $examples"
+  
+  build-examples:
+    name: Build ${{ matrix.example }}
+    runs-on: ubuntu-24.04
+    needs: [prepare, discover-examples]
+    strategy:
+      fail-fast: false
+      matrix:
+        example: ${{ fromJson(needs.discover-examples.outputs.examples) }}
     container:
       image: ${{ needs.prepare.outputs.container_image }}
       credentials:
@@ -83,47 +104,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
           
-      - name: Find and build examples
+      - name: Build and test example
+        working-directory: ${{ matrix.example }}
         run: |
-          echo "Searching for examples with platformio.ini..."
+          echo "Building example: ${{ matrix.example }}"
           
-          # Find all platformio.ini files under examples directory
-          find examples -name "platformio.ini" -type f | while IFS= read -r pio_file; do
-            example_dir=$(dirname "$pio_file")
-            echo ""
-            echo "=========================================="
-            echo "Building example: $example_dir"
-            echo "=========================================="
-            
-            # Change to example directory and build
-            cd "$example_dir"
-            
-            # Build the example
-            if pio run; then
-              echo "✅ Build successful for $example_dir"
-              
-              # Find and run executables
-              echo "Looking for executables in .pio/build/*/program..."
-              for program in .pio/build/*/program; do
-                if [ -f "$program" ]; then
-                  echo "Running executable: $program"
-                  
-                  # Run the program with timeout to prevent hanging
-                  timeout 10s "$program" || true
-                  echo "Execution completed (or timed out after 10s)"
-                fi
-              done
-            else
-              echo "❌ Build failed for $example_dir"
-              # Continue with other examples even if this one fails
+          # Build will fail the job if it fails
+          pio run
+          
+          # Run executables with timeout
+          echo "Looking for executables in .pio/build/*/program..."
+          for program in .pio/build/*/program; do
+            if [ -f "$program" ]; then
+              echo "Running executable: $program"
+              timeout 10s "$program"
+              echo "Execution completed (or timed out after 10s)"
             fi
-            
-            # Return to root directory
-            cd - > /dev/null
           done
-          
-          echo ""
-          echo "All examples processed"
           
   coverage:
     name: Code Coverage
