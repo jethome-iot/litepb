@@ -8,6 +8,7 @@ import os
 from typing import Dict, Any, List, Optional
 from jinja2 import Environment, DictLoader
 from type_mapper import TypeMapper
+from rpc_options import MethodOptions, ServiceOptions
 
 
 class CppGenerator:
@@ -1384,28 +1385,17 @@ namespace litepb {
                 )
             method_ids[method_id] = method['name']
         
-        # Separate methods by direction and type (RPC vs fire-and-forget)
-        client_callable_methods = []  # CLIENT_TO_SERVER and BIDIRECTIONAL (regular RPC)
-        server_callable_methods = []  # SERVER_TO_CLIENT and BIDIRECTIONAL (regular RPC)
-        client_fire_and_forget = []   # CLIENT_TO_SERVER fire-and-forget events
-        server_fire_and_forget = []   # SERVER_TO_CLIENT fire-and-forget events
+        # Separate methods by type (RPC vs fire-and-forget)
+        regular_methods = []  # Request-response RPC methods
+        fire_and_forget_methods = []  # Fire-and-forget events
         
         for method in service['methods']:
-            direction = method['options'].get('direction', 'BIDIRECTIONAL')
             is_fire_and_forget = method['options'].get('fire_and_forget', False)
             
             if is_fire_and_forget:
-                # Fire-and-forget events
-                if direction in ('CLIENT_TO_SERVER', 'BIDIRECTIONAL'):
-                    client_fire_and_forget.append(method)
-                if direction in ('SERVER_TO_CLIENT', 'BIDIRECTIONAL'):
-                    server_fire_and_forget.append(method)
+                fire_and_forget_methods.append(method)
             else:
-                # Regular RPC methods
-                if direction in ('CLIENT_TO_SERVER', 'BIDIRECTIONAL'):
-                    client_callable_methods.append(method)
-                if direction in ('SERVER_TO_CLIENT', 'BIDIRECTIONAL'):
-                    server_callable_methods.append(method)
+                regular_methods.append(method)
         
         # Generate client stub class
         lines.append(f'// Client stub for {service_name} (service_id={service_id})')
@@ -1415,8 +1405,8 @@ namespace litepb {
         lines.append('        : channel_(channel) {}')
         lines.append('')
         
-        # Generate client RPC methods (CLIENT_TO_SERVER and BIDIRECTIONAL only)
-        for method in client_callable_methods:
+        # Generate client RPC methods
+        for method in regular_methods:
             method_name = method['name']
             method_id = method['options'].get('method_id')
             input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
@@ -1433,10 +1423,10 @@ namespace litepb {
             lines.append('    }')
             lines.append('')
         
-        # Generate client fire-and-forget event senders (CLIENT_TO_SERVER)
-        if client_fire_and_forget:
+        # Generate fire-and-forget event senders
+        if fire_and_forget_methods:
             lines.append('    // Fire-and-forget event senders')
-            for method in client_fire_and_forget:
+            for method in fire_and_forget_methods:
                 method_name = method['name']
                 method_id = method['options'].get('method_id')
                 input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
@@ -1447,30 +1437,10 @@ namespace litepb {
                 lines.append('    }')
                 lines.append('')
         
-        # Generate client handler registration methods for SERVER_TO_CLIENT regular RPC
-        if server_callable_methods and server_callable_methods != client_callable_methods:
-            lines.append('    // Handler registration for server-initiated calls')
-            for method in server_callable_methods:
-                if method not in client_callable_methods:
-                    method_name = method['name']
-                    method_id = method['options'].get('method_id')
-                    input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
-                    output_type = self._get_qualified_type_name(method['output_type'], namespace_prefix)
-                    
-                    lines.append(f'    // service_id={service_id}, method_id={method_id}')
-                    lines.append(f'    void on_{method_name}(')
-                    lines.append(f'        std::function<litepb::Result<{output_type}>(const {input_type}&)> handler) {{')
-                    lines.append(f'        channel_.on_internal<{input_type}, {output_type}>(')
-                    lines.append(f'            {service_id}, {method_id}, handler);')
-                    lines.append('    }')
-                    lines.append('')
-        
-        # Generate client event handler registration for SERVER_TO_CLIENT fire-and-forget
-        if server_fire_and_forget:
-            # Check if we need the header comment
-            if not (server_callable_methods and server_callable_methods != client_callable_methods):
-                lines.append('    // Event handler registration')
-            for method in server_fire_and_forget:
+        # Generate event handler registration
+        if fire_and_forget_methods:
+            lines.append('    // Event handler registration')
+            for method in fire_and_forget_methods:
                 method_name = method['name']
                 method_id = method['options'].get('method_id')
                 input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
@@ -1493,8 +1463,8 @@ namespace litepb {
         lines.append(f'    virtual ~{service_name}Server() = default;')
         lines.append('')
         
-        # Generate server virtual methods (CLIENT_TO_SERVER and BIDIRECTIONAL regular RPC only, not fire-and-forget)
-        for method in client_callable_methods:
+        # Generate server virtual methods for regular RPC
+        for method in regular_methods:
             method_name = method['name']
             input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
             output_type = self._get_qualified_type_name(method['output_type'], namespace_prefix)
@@ -1508,29 +1478,20 @@ namespace litepb {
         lines.append('')
         
         # Generate EventServer interface (for fire-and-forget events)
-        if client_fire_and_forget or server_fire_and_forget:
+        if fire_and_forget_methods:
             lines.append(f'// EventServer interface for {service_name}')
             lines.append(f'class {service_name}EventServer {{')
             lines.append('public:')
             lines.append(f'    virtual ~{service_name}EventServer() = default;')
             lines.append('')
             
-            # Generate handler methods for CLIENT_TO_SERVER fire-and-forget events
-            for method in client_fire_and_forget:
+            # Generate handler methods for all fire-and-forget events
+            for method in fire_and_forget_methods:
                 method_name = method['name']
                 input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
                 
                 lines.append(f'    virtual void {method_name}Handler(uint64_t src_addr, const {input_type}& msg) {{}}')
                 lines.append('')
-            
-            # Generate handler methods for SERVER_TO_CLIENT fire-and-forget events (if different from client)
-            for method in server_fire_and_forget:
-                if method not in client_fire_and_forget:
-                    method_name = method['name']
-                    input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
-                    
-                    lines.append(f'    virtual void {method_name}Handler(uint64_t src_addr, const {input_type}& msg) {{}}')
-                    lines.append('')
             
             lines.append('};')
             lines.append('')
@@ -1541,8 +1502,8 @@ namespace litepb {
         lines.append(f'    litepb::RpcChannel& channel,')
         lines.append(f'    {service_name}Server& server) {{')
         
-        # Register each CLIENT_TO_SERVER and BIDIRECTIONAL regular RPC method (not fire-and-forget)
-        for method in client_callable_methods:
+        # Register each regular RPC method
+        for method in regular_methods:
             method_name = method['name']
             method_id = method['options'].get('method_id')
             input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
@@ -1560,15 +1521,15 @@ namespace litepb {
         lines.append('')
         
         # Generate event registration helper (for fire-and-forget events)
-        if client_fire_and_forget or server_fire_and_forget:
+        if fire_and_forget_methods:
             lines.append(f'// Event registration helper for {service_name} (service_id={service_id})')
             lines.append(f'inline void register_{self._to_snake_case(service_name)}_events(')
             lines.append(f'    litepb::RpcChannel& channel,')
             lines.append(f'    {service_name}EventServer* handler) {{')
             lines.append('    if (handler) {')
             
-            # Register each CLIENT_TO_SERVER fire-and-forget event
-            for method in client_fire_and_forget:
+            # Register each fire-and-forget event
+            for method in fire_and_forget_methods:
                 method_name = method['name']
                 method_id = method['options'].get('method_id')
                 input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
@@ -1580,21 +1541,6 @@ namespace litepb {
                 lines.append(f'            [handler](uint64_t src_addr, const {input_type}& msg) {{')
                 lines.append(f'                handler->{method_name}Handler(src_addr, msg);')
                 lines.append('            });')
-            
-            # Register each SERVER_TO_CLIENT fire-and-forget event (if different from client)
-            for method in server_fire_and_forget:
-                if method not in client_fire_and_forget:
-                    method_name = method['name']
-                    method_id = method['options'].get('method_id')
-                    input_type = self._get_qualified_type_name(method['input_type'], namespace_prefix)
-                    
-                    lines.append('')
-                    lines.append(f'        // service_id={service_id}, method_id={method_id}')
-                    lines.append(f'        channel.on_event<{input_type}>(')
-                    lines.append(f'            {service_id}, {method_id},')
-                    lines.append(f'            [handler](uint64_t src_addr, const {input_type}& msg) {{')
-                    lines.append(f'                handler->{method_name}Handler(src_addr, msg);')
-                    lines.append('            });')
             
             lines.append('    }')
             lines.append('}')

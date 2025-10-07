@@ -12,6 +12,7 @@ from google.protobuf import descriptor_pb2
 from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.descriptor import FieldDescriptor, Descriptor, EnumDescriptor
 from typing import List, Dict, Optional, Any
+from rpc_options import MethodOptions, ServiceOptions
 
 
 class ProtoParser:
@@ -275,15 +276,15 @@ class ProtoParser:
             'options': {}
         }
         
-        # Extract service_id from ServiceOptions (extension field 50006)
+        # Extract service_id from ServiceOptions
         service_id = None
         if service_proto.HasField('options'):
             options = service_proto.options
             serialized = options.SerializeToString()
             extension_values = self._parse_extension_fields(serialized)
             
-            if 50006 in extension_values:
-                service_id = extension_values[50006]
+            if ServiceOptions.SERVICE_ID in extension_values:
+                service_id = extension_values[ServiceOptions.SERVICE_ID]
         
         service['options']['service_id'] = service_id
         
@@ -305,55 +306,25 @@ class ProtoParser:
         }
         
         # Set default options
-        direction = 'BIDIRECTIONAL'
-        transport = 'LIGHTWEIGHT'
         default_timeout_ms = 5000
         method_id = None
         fire_and_forget = False
         
         # Extract custom options (litepb.rpc extension fields)
-        # Extension field numbers: direction (50001), transport (50002), default_timeout_ms (50003), method_id (50004), fire_and_forget (50005)
         if method_proto.HasField('options'):
             options = method_proto.options
-            
-            # Parse extension fields from the serialized options
-            # Extension fields are encoded as: (field_number << 3) | wire_type
-            # For varint: wire_type = 0
-            # Field 50001 -> tag = 400008 (0x61A88) -> varint encoded as 0x88, 0xB5, 0x18
-            # Field 50002 -> tag = 400016 (0x61A90) -> varint encoded as 0x90, 0xB5, 0x18
-            # Field 50003 -> tag = 400024 (0x61A98) -> varint encoded as 0x98, 0xB5, 0x18
-            # Field 50004 -> tag = 400032 (0x61AA0) -> varint encoded as 0xA0, 0xB5, 0x18
-            # Field 50005 -> tag = 400040 (0x61AA8) -> varint encoded as 0xA8, 0xB5, 0x18
             serialized = options.SerializeToString()
             extension_values = self._parse_extension_fields(serialized)
             
-            if 50001 in extension_values:
-                direction_value = extension_values[50001]
-                if direction_value == 0:
-                    direction = 'BIDIRECTIONAL'
-                elif direction_value == 1:
-                    direction = 'CLIENT_TO_SERVER'
-                elif direction_value == 2:
-                    direction = 'SERVER_TO_CLIENT'
+            if MethodOptions.DEFAULT_TIMEOUT_MS in extension_values:
+                default_timeout_ms = extension_values[MethodOptions.DEFAULT_TIMEOUT_MS]
             
-            if 50002 in extension_values:
-                transport_value = extension_values[50002]
-                if transport_value == 0:
-                    transport = 'LIGHTWEIGHT'
-                elif transport_value == 1:
-                    transport = 'GRPC'
+            if MethodOptions.METHOD_ID in extension_values:
+                method_id = extension_values[MethodOptions.METHOD_ID]
             
-            if 50003 in extension_values:
-                default_timeout_ms = extension_values[50003]
-            
-            if 50004 in extension_values:
-                method_id = extension_values[50004]
-            
-            if 50005 in extension_values:
-                fire_and_forget = bool(extension_values[50005])
+            if MethodOptions.FIRE_AND_FORGET in extension_values:
+                fire_and_forget = bool(extension_values[MethodOptions.FIRE_AND_FORGET])
         
-        method['options']['direction'] = direction
-        method['options']['transport'] = transport
         method['options']['default_timeout_ms'] = default_timeout_ms
         method['options']['method_id'] = method_id
         method['options']['fire_and_forget'] = fire_and_forget
