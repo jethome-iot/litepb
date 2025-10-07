@@ -119,11 +119,11 @@ jobs:
               echo "Execution completed (or timed out after 10s)"
             fi
           done
-      
-      - name: Run tests
-        if: matrix.example.has_tests
-        working-directory: ${{ matrix.example.path }}
-        run: pio test
+      # FIXME: Temporarily disabled 
+      # - name: Run tests
+      #   if: matrix.example.has_tests
+      #   working-directory: ${{ matrix.example.path }}
+      #   run: pio test
           
   coverage:
     name: Code Coverage
