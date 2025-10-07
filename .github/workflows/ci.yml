@@ -98,8 +98,8 @@ jobs:
           echo "examples=$examples" >> $GITHUB_OUTPUT
           echo "Found examples: $examples"
   
-  examples-build:
-    name: Build ${{ matrix.example.name }}
+  examples:
+    name: Example ${{ matrix.example.name }}
     runs-on: ubuntu-24.04
     needs: [prepare, examples-discover]
     strategy:
@@ -133,26 +133,7 @@ jobs:
               echo "Execution completed (or timed out after 10s)"
             fi
           done
-          
-  examples-test:
-    name: Test ${{ matrix.example.name }}
-    runs-on: ubuntu-24.04
-    needs: [prepare, examples-discover]
-    if: contains(needs.examples-discover.outputs.examples, '"has_tests":true')
-    strategy:
-      fail-fast: false
-      matrix:
-        example: ${{ fromJson(needs.examples-discover.outputs.examples) }}
-    container:
-      image: ${{ needs.prepare.outputs.container_image }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user root
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
+      
       - name: Run tests
         if: matrix.example.has_tests
         working-directory: ${{ matrix.example.path }}
