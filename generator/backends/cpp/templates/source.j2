@@ -1,0 +1,10 @@
+#include "litepb/litepb.h"
+#include "{{ include_file }}"
+
+namespace litepb {
+
+{% for message in messages %}
+{{ generate_serializer_impl(message, namespace_prefix) }}
+{% endfor %}
+
+}  // namespace litepb

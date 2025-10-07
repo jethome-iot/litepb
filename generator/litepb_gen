@@ -3,12 +3,16 @@
 import sys
 import os
 
-# Add the generator directory to Python path
+# Run the generator as a module to support proper relative imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, script_dir)
+parent_dir = os.path.dirname(script_dir)
 
-# Import and run the main function
-from litepb_gen import main
+# Change to parent directory and run as module
+os.chdir(parent_dir)
+sys.path.insert(0, parent_dir)
+
+# Import and run the main function using module import
+from generator.litepb_gen import main
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -8,8 +8,9 @@ import os
 import sys
 import argparse
 from pathlib import Path
-from proto_parser import ProtoParser
-from cpp_generator import CppGenerator
+
+from .core.proto_parser import ProtoParser
+from .backends.cpp.generator import CppGenerator
 
 
 def check_dependencies():
@@ -71,37 +72,12 @@ def main():
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Automatically add 'proto' folder to include paths if it exists
+    # Use only explicitly provided include paths
     include_paths = args.include.copy()
     
-    # Find proto directory relative to the generator's location
-    # This ensures the generator works regardless of where it's invoked from
-    generator_dir = Path(__file__).parent
-    project_root = generator_dir.parent
-    proto_dir = project_root / 'proto'
-    
-    # Add proto directory to include paths if it exists
-    if proto_dir.exists() and proto_dir.is_dir():
-        if str(proto_dir) not in include_paths:
-            include_paths.append(str(proto_dir))
-    
-    # Validate that the critical proto/litepb directory exists
-    litepb_dir = proto_dir / 'litepb'
-    if not litepb_dir.exists() or not litepb_dir.is_dir():
-        print(f"Error: Critical directory 'proto/litepb' not found at {litepb_dir}", file=sys.stderr)
-        print(f"Expected project structure:", file=sys.stderr)
-        print(f"  {project_root}/", file=sys.stderr)
-        print(f"    proto/", file=sys.stderr)
-        print(f"      litepb/", file=sys.stderr)
-        print(f"        rpc_protocol.proto", file=sys.stderr)
-        print(f"        rpc_options.proto", file=sys.stderr)
-        print(f"    generator/", file=sys.stderr)
-        print(f"      litepb_gen.py (this file)", file=sys.stderr)
-        return 1
-    
-    # Add litepb directory to include paths as well
-    if str(litepb_dir) not in include_paths:
-        include_paths.append(str(litepb_dir))
+    # If no include paths provided, add helpful message
+    if not include_paths and any('.proto' in arg for arg in args.proto_files):
+        print("Info: No include paths specified. If imports fail, use -I to add proto directories", file=sys.stderr)
     
     # Initialize parser and generator
     proto_parser = ProtoParser(import_paths=include_paths)

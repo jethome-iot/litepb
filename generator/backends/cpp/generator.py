@@ -6,14 +6,15 @@ Generates C++ header and implementation files from protobuf descriptors.
 
 import os
 from typing import Dict, Any, List, Optional
-from jinja2 import Environment, DictLoader
+from jinja2 import Environment, FileSystemLoader
 from google.protobuf import descriptor_pb2
-from type_mapper import TypeMapper
-from rpc_options import MethodOptions, ServiceOptions
-from proto_parser import ProtoParser
+from ..base import LanguageGenerator
+from .type_mapper import TypeMapper
+from ...core.rpc_options import MethodOptions, ServiceOptions
+from ...core.proto_parser import ProtoParser
 
 
-class CppGenerator:
+class CppGenerator(LanguageGenerator):
     """Generate C++ code from parsed protobuf structures."""
     
     def __init__(self):
@@ -22,6 +23,14 @@ class CppGenerator:
         self.current_proto = None  # Track current proto for context (FileDescriptorProto)
         self.parser = ProtoParser()  # For extracting RPC options
         self.setup_templates()
+    
+    @property
+    def rpc_generator(self):
+        """Lazy-load RPC generator only when services are detected."""
+        if not hasattr(self, '_rpc_generator'):
+            from ...rpc.litepb.generator import LitePBRpcGenerator
+            self._rpc_generator = LitePBRpcGenerator()
+        return self._rpc_generator
     
     # Helper methods for working with protobuf descriptor enums
     @staticmethod
@@ -103,86 +112,8 @@ class CppGenerator:
     
     def setup_templates(self):
         """Set up Jinja2 templates for code generation."""
-        templates = {
-            'header': '''#pragma once
-
-#include "litepb/litepb.h"
-#include <string>
-#include <vector>
-#include <cstdint>
-#include <cstring>
-#include <optional>
-#include <variant>
-#include <unordered_map>
-#include <algorithm>
-#include <utility>
-{%- if services %}
-#include <functional>
-#include "litepb/rpc/channel.h"
-#include "litepb/rpc/error.h"
-{% endif %}
-
-{%- for import in imports %}
-#include "{{ import }}"
-{% endfor %}
-
-{% if package %}
-{% for ns in namespace_parts %}
-namespace {{ ns }} {
-{% endfor %}
-
-{% endif %}
-{%- for enum in enums %}
-{{ generate_enum(enum) }}
-{% endfor %}
-
-{%- if messages %}
-// Forward declarations
-{%- for message in messages %}
-struct {{ message.name }};
-{% endfor %}
-
-{% endif %}
-{%- for message in messages %}
-{{ generate_message_definition(message) }}
-{% endfor %}
-
-{%- if services %}
-// RPC Service Stubs
-{% for service in services %}
-{{ generate_rpc_service(service, namespace_prefix) }}
-{% endfor %}
-{% endif %}
-
-{% if package %}
-{% for ns in namespace_parts|reverse %}
-}  // namespace {{ ns }}
-{% endfor %}
-
-{% endif %}
-// Serializer specializations
-namespace litepb {
-
-{% for message in messages %}
-{{ generate_serializer_spec(message, namespace_prefix, true) }}
-{% endfor %}
-
-}  // namespace litepb
-''',
-            'source': '''#include "litepb/litepb.h"
-#include "{{ include_file }}"
-
-namespace litepb {
-
-{% for message in messages %}
-{{ generate_serializer_impl(message, namespace_prefix) }}
-{% endfor %}
-
-}  // namespace litepb
-'''
-        }
-        
-        self.env = Environment(loader=DictLoader(templates))
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        self.env = Environment(loader=FileSystemLoader(template_dir))
         
         # Register custom functions
         self.env.globals['generate_enum'] = self.generate_enum
@@ -191,12 +122,11 @@ namespace litepb {
         self.env.globals['generate_message_definition'] = self.generate_message_definition
         self.env.globals['generate_serializer_spec'] = self.generate_serializer_spec
         self.env.globals['generate_serializer_impl'] = self.generate_serializer_impl
-        self.env.globals['generate_rpc_service'] = self.generate_rpc_service
     
     def generate_header(self, file_proto: descriptor_pb2.FileDescriptorProto, filename: str) -> str:
         """Generate C++ header file content."""
         self.current_proto = file_proto  # Set context for type generation
-        template = self.env.get_template('header')
+        template = self.env.get_template('header.j2')
         
         # Convert imports to include paths
         import_includes = []
@@ -212,17 +142,23 @@ namespace litepb {
         # Sort messages in topological order to avoid forward declaration issues
         messages = list(file_proto.message_type)
         sorted_messages = self._topological_sort_messages(messages)
+        
+        # Generate RPC services using the RPC generator
+        services = list(file_proto.service)
+        namespace_prefix = self.get_namespace_prefix(file_proto.package if file_proto.package else '')
+        rpc_services_code = self.rpc_generator.generate_services(services, file_proto, namespace_prefix)
 
         # Prepare context
         context = {
             'header_guard': self.get_header_guard(filename),
             'package': file_proto.package if file_proto.package else '',
             'namespace_parts': self.get_namespace_parts(file_proto.package if file_proto.package else ''),
-            'namespace_prefix': self.get_namespace_prefix(file_proto.package if file_proto.package else ''),
+            'namespace_prefix': namespace_prefix,
             'imports': import_includes,
             'enums': list(file_proto.enum_type),
             'messages': sorted_messages,
-            'services': list(file_proto.service),
+            'services': services,
+            'rpc_services_code': rpc_services_code,
         }
         
         return template.render(**context)
@@ -230,7 +166,7 @@ namespace litepb {
     def generate_implementation(self, file_proto: descriptor_pb2.FileDescriptorProto, filename: str) -> str:
         """Generate C++ implementation file content."""
         self.current_proto = file_proto  # Set context for type generation
-        template = self.env.get_template('source')
+        template = self.env.get_template('source.j2')
         
         # Prepare context
         context = {
@@ -1380,243 +1316,3 @@ namespace litepb {
         if not package:
             return ''
         return package.replace('.', '::')
-    
-    def generate_rpc_service(self, service: descriptor_pb2.ServiceDescriptorProto, namespace_prefix: str) -> str:
-        """Generate RPC service stubs (client, server interface, and registration function)."""
-        lines = []
-        service_name = service.name
-        
-        # Extract service options using parser
-        service_options = self.parser.extract_service_options(service)
-        
-        # Validate service_id: must be present and > 0
-        service_id = service_options.service_id
-        if service_id is None:
-            raise RuntimeError(
-                f"Service '{service_name}' is missing required 'service_id' option. "
-                f"Add: option (litepb.rpc.service_id) = <unique_id>;"
-            )
-        if service_id == 0:
-            raise RuntimeError(
-                f"Service '{service_name}' has invalid service_id=0. "
-                f"service_id must be greater than 0."
-            )
-        
-        # Generate SERVICE_ID constant
-        service_id_constant = f'{service_name.upper()}_SERVICE_ID'
-        lines.append(f'#define {service_id_constant} {service_id}')
-        lines.append('')
-        
-        # Validate method_id: all methods must have method_id set
-        method_ids = {}
-        for method in service.method:
-            method_options = self.parser.extract_method_options(method)
-            method_id = method_options.method_id
-            if method_id is None:
-                raise RuntimeError(
-                    f"Method '{method.name}' in service '{service_name}' is missing required "
-                    f"'method_id' option. Add: option (litepb.rpc.method_id) = <unique_id>;"
-                )
-            
-            # Check for duplicate method_ids within the service
-            if method_id in method_ids:
-                raise RuntimeError(
-                    f"Duplicate method_id {method_id} in service '{service_name}': "
-                    f"methods '{method_ids[method_id]}' and '{method.name}' have the same ID"
-                )
-            method_ids[method_id] = method.name
-        
-        # Separate methods by type (RPC vs fire-and-forget)
-        regular_methods = []  # Request-response RPC methods
-        fire_and_forget_methods = []  # Fire-and-forget events
-        
-        for method in service.method:
-            method_options = self.parser.extract_method_options(method)
-            is_fire_and_forget = method_options.fire_and_forget
-            
-            if is_fire_and_forget:
-                fire_and_forget_methods.append(method)
-            else:
-                regular_methods.append(method)
-        
-        # Generate client stub class
-        lines.append(f'// Client stub for {service_name} (service_id={service_id})')
-        lines.append(f'class {service_name}Client {{')
-        lines.append('public:')
-        lines.append(f'    explicit {service_name}Client(litepb::RpcChannel& channel)')
-        lines.append('        : channel_(channel) {}')
-        lines.append('')
-        
-        # Generate client RPC methods
-        for method in regular_methods:
-            method_options = self.parser.extract_method_options(method)
-            method_name = method.name
-            method_id = method_options.method_id
-            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
-            default_timeout = method_options.default_timeout_ms
-            
-            lines.append(f'    // service_id={service_id}, method_id={method_id}')
-            lines.append(f'    void {method_name}(const {input_type}& request,')
-            lines.append(f'                      std::function<void(const litepb::Result<{output_type}>&)> callback,')
-            lines.append(f'                      uint32_t timeout_ms = {default_timeout},')
-            lines.append(f'                      uint64_t dst_addr = 0) {{')
-            lines.append(f'        channel_.call_internal<{input_type}, {output_type}>(')
-            lines.append(f'            {service_id}, {method_id}, request, callback, timeout_ms, dst_addr);')
-            lines.append('    }')
-            lines.append('')
-        
-        # Generate fire-and-forget event senders
-        if fire_and_forget_methods:
-            lines.append('    // Fire-and-forget event senders')
-            for method in fire_and_forget_methods:
-                method_options = self.parser.extract_method_options(method)
-                method_name = method.name
-                method_id = method_options.method_id
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append(f'    // service_id={service_id}, method_id={method_id}')
-                lines.append(f'    bool {method_name}(const {input_type}& event, uint64_t dst_addr = 0) {{')
-                lines.append(f'        return channel_.send_event<{input_type}>({service_id}, {method_id}, event, dst_addr);')
-                lines.append('    }')
-                lines.append('')
-        
-        # Generate event handler registration
-        if fire_and_forget_methods:
-            lines.append('    // Event handler registration')
-            for method in fire_and_forget_methods:
-                method_options = self.parser.extract_method_options(method)
-                method_name = method.name
-                method_id = method_options.method_id
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append(f'    // service_id={service_id}, method_id={method_id}')
-                lines.append(f'    void on{method_name}(std::function<void(uint64_t, const {input_type}&)> handler) {{')
-                lines.append(f'        channel_.on_event<{input_type}>({service_id}, {method_id}, handler);')
-                lines.append('    }')
-                lines.append('')
-        
-        lines.append('private:')
-        lines.append('    litepb::RpcChannel& channel_;')
-        lines.append('};')
-        lines.append('')
-        
-        # Generate server interface class (only for regular RPC methods, not fire-and-forget)
-        lines.append(f'// Server interface for {service_name}')
-        lines.append(f'class {service_name}Server {{')
-        lines.append('public:')
-        lines.append(f'    virtual ~{service_name}Server() = default;')
-        lines.append('')
-        
-        # Generate server virtual methods for regular RPC
-        for method in regular_methods:
-            method_name = method.name
-            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
-            
-            lines.append(f'    virtual litepb::Result<{output_type}> {method_name}(')
-            lines.append(f'        uint64_t src_addr,')
-            lines.append(f'        const {input_type}& request) = 0;')
-            lines.append('')
-        
-        lines.append('};')
-        lines.append('')
-        
-        # Generate EventServer interface (for fire-and-forget events)
-        if fire_and_forget_methods:
-            lines.append(f'// EventServer interface for {service_name}')
-            lines.append(f'class {service_name}EventServer {{')
-            lines.append('public:')
-            lines.append(f'    virtual ~{service_name}EventServer() = default;')
-            lines.append('')
-            
-            # Generate handler methods for all fire-and-forget events
-            for method in fire_and_forget_methods:
-                method_name = method.name
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append(f'    virtual void {method_name}Handler(uint64_t src_addr, const {input_type}& msg) {{}}')
-                lines.append('')
-            
-            lines.append('};')
-            lines.append('')
-        
-        # Generate registration helper function (only for regular RPC methods, not fire-and-forget)
-        lines.append(f'// Registration helper for {service_name} (service_id={service_id})')
-        lines.append(f'inline void register_{self._to_snake_case(service_name)}(')
-        lines.append(f'    litepb::RpcChannel& channel,')
-        lines.append(f'    {service_name}Server& server) {{')
-        
-        # Register each regular RPC method
-        for method in regular_methods:
-            method_options = self.parser.extract_method_options(method)
-            method_name = method.name
-            method_id = method_options.method_id
-            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
-            
-            lines.append('')
-            lines.append(f'    // service_id={service_id}, method_id={method_id}')
-            lines.append(f'    channel.on_internal<{input_type}, {output_type}>(')
-            lines.append(f'        {service_id}, {method_id},')
-            lines.append(f'        [&server](uint64_t src_addr, const {input_type}& request) {{')
-            lines.append(f'            return server.{method_name}(src_addr, request);')
-            lines.append('        });')
-        
-        lines.append('}')
-        lines.append('')
-        
-        # Generate event registration helper (for fire-and-forget events)
-        if fire_and_forget_methods:
-            lines.append(f'// Event registration helper for {service_name} (service_id={service_id})')
-            lines.append(f'inline void register_{self._to_snake_case(service_name)}_events(')
-            lines.append(f'    litepb::RpcChannel& channel,')
-            lines.append(f'    {service_name}EventServer* handler) {{')
-            lines.append('    if (handler) {')
-            
-            # Register each fire-and-forget event
-            for method in fire_and_forget_methods:
-                method_options = self.parser.extract_method_options(method)
-                method_name = method.name
-                method_id = method_options.method_id
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append('')
-                lines.append(f'        // service_id={service_id}, method_id={method_id}')
-                lines.append(f'        channel.on_event<{input_type}>(')
-                lines.append(f'            {service_id}, {method_id},')
-                lines.append(f'            [handler](uint64_t src_addr, const {input_type}& msg) {{')
-                lines.append(f'                handler->{method_name}Handler(src_addr, msg);')
-                lines.append('            });')
-            
-            lines.append('    }')
-            lines.append('}')
-            lines.append('')
-        
-        return '\n'.join(lines)
-    
-    def _get_qualified_type_name(self, type_name: str, namespace_prefix: str) -> str:
-        """Get qualified type name for RPC methods."""
-        # Remove leading dot if present
-        if type_name.startswith('.'):
-            type_name = type_name[1:]
-        
-        # Convert proto package notation to C++ namespace notation
-        type_name = type_name.replace('.', '::')
-        
-        # If the type is in the same package, we can use it directly
-        # Otherwise, we need the full qualification
-        if namespace_prefix and type_name.startswith(namespace_prefix + '::'):
-            # Type is in the same namespace, can use unqualified name
-            return type_name[len(namespace_prefix) + 2:]
-        
-        return type_name
-    
-    def _to_snake_case(self, name: str) -> str:
-        """Convert CamelCase to snake_case."""
-        result = []
-        for i, char in enumerate(name):
-            if char.isupper() and i > 0:
-                result.append('_')
-            result.append(char.lower())
-        return ''.join(result)

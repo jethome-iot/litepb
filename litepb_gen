@@ -100,5 +100,6 @@ if ! check_dependencies; then
     fi
 fi
 
-# Run the generator with all passed arguments
-exec python "$GENERATOR_SCRIPT" "$@"
+# Run the generator as a module to support relative imports
+cd "$SCRIPT_DIR"
+exec python -m generator.litepb_gen "$@"

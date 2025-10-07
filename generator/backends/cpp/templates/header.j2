@@ -1,0 +1,61 @@
+#pragma once
+
+#include "litepb/litepb.h"
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <cstring>
+#include <optional>
+#include <variant>
+#include <unordered_map>
+#include <algorithm>
+#include <utility>
+{%- if services %}
+#include <functional>
+#include "litepb/rpc/channel.h"
+#include "litepb/rpc/error.h"
+{% endif %}
+
+{%- for import in imports %}
+#include "{{ import }}"
+{% endfor %}
+
+{% if package %}
+{% for ns in namespace_parts %}
+namespace {{ ns }} {
+{% endfor %}
+
+{% endif %}
+{%- for enum in enums %}
+{{ generate_enum(enum) }}
+{% endfor %}
+
+{%- if messages %}
+// Forward declarations
+{%- for message in messages %}
+struct {{ message.name }};
+{% endfor %}
+
+{% endif %}
+{%- for message in messages %}
+{{ generate_message_definition(message) }}
+{% endfor %}
+
+{%- if rpc_services_code %}
+{{ rpc_services_code }}
+{% endif %}
+
+{% if package %}
+{% for ns in namespace_parts|reverse %}
+}  // namespace {{ ns }}
+{% endfor %}
+
+{% endif %}
+// Serializer specializations
+namespace litepb {
+
+{% for message in messages %}
+{{ generate_serializer_spec(message, namespace_prefix, true) }}
+{% endfor %}
+
+}  // namespace litepb

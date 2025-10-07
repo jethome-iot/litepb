@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from google.protobuf import descriptor_pb2
 from typing import List, Dict, Optional
-from rpc_options import RpcMethodOptions, RpcServiceOptions, MethodOptions, ServiceOptions
+from .rpc_options import RpcMethodOptions, RpcServiceOptions, MethodOptions, ServiceOptions
 
 
 class ProtoParser:
