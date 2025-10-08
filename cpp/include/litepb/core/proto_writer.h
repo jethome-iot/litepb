@@ -219,6 +219,29 @@ public:
      */
     static size_t sint64_size(int64_t value) { return varint_size(zigzag_encode64(value)); }
 
+    /**
+     * @brief Calculate the serialized size of a string field (tag + length + data)
+     * @param field_number The field number
+     * @param value The string value
+     * @return Number of bytes required to encode the field
+     */
+    static size_t string_size(uint32_t field_number, const std::string& value);
+
+    /**
+     * @brief Calculate the serialized size of a bytes field (tag + length + data)
+     * @param field_number The field number
+     * @param value The bytes value
+     * @return Number of bytes required to encode the field
+     */
+    static size_t bytes_size(uint32_t field_number, const std::vector<uint8_t>& value);
+
+    /**
+     * @brief Calculate the serialized size of unknown fields
+     * @param unknown_fields The UnknownFieldSet to calculate size for
+     * @return Number of bytes required to encode all unknown fields
+     */
+    static size_t unknown_fields_size(const class UnknownFieldSet& unknown_fields);
+
 private:
     /**
      * @brief Encode a 32-bit signed value using zigzag encoding

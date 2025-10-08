@@ -116,10 +116,10 @@ void test_unknown_length_delimited_field() {
     TEST_ASSERT_TRUE(unknown_fields.serialize_to(output));
     
     // Verify the serialized data
-    // Should contain: tag (field 40, wire type 2) = 0x42 01 (varint), length, data
+    // Should contain: tag (field 40, wire type 2) = 0x142 = 0xC2 0x02 (varint), length, data
     const uint8_t* data = output.data();
-    TEST_ASSERT_EQUAL_UINT8(0x42, data[0]);  // (40 << 3) | 2 = 0x142 (varint)
-    TEST_ASSERT_EQUAL_UINT8(0x01, data[1]);  // Continuation of tag
+    TEST_ASSERT_EQUAL_UINT8(0xC2, data[0]);  // (40 << 3) | 2 = 0x142, first byte 0xC2
+    TEST_ASSERT_EQUAL_UINT8(0x02, data[1]);  // Continuation of tag, second byte 0x02
     
     // Parse back and verify
     BufferInputStream input(output.data(), output.size());

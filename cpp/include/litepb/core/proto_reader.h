@@ -179,6 +179,19 @@ public:
     bool capture_unknown_field(WireType type, std::vector<uint8_t>& data);
 
     /**
+     * @brief Skip a field and save it directly to an UnknownFieldSet
+     *
+     * Convenience method that captures an unknown field and adds it directly
+     * to an UnknownFieldSet based on the field type.
+     *
+     * @param field_number The field number
+     * @param type The wire type of the field
+     * @param unknown_fields The UnknownFieldSet to add the field to
+     * @return true if skip and save succeeded, false on error
+     */
+    bool skip_and_save(uint32_t field_number, WireType type, class UnknownFieldSet& unknown_fields);
+
+    /**
      * @brief Read a zigzag-encoded signed 32-bit integer
      *
      * Reads a varint and decodes it using zigzag decoding for efficient

@@ -1,4 +1,5 @@
 #include "litepb/core/proto_writer.h"
+#include "litepb/core/unknown_fields.h"
 #include <cstring>
 
 namespace litepb {
@@ -103,6 +104,27 @@ size_t ProtoWriter::varint_size(uint64_t value)
         size++;
     }
     return size;
+}
+
+size_t ProtoWriter::string_size(uint32_t field_number, const std::string& value)
+{
+    size_t size = varint_size((field_number << 3) | WIRE_TYPE_LENGTH_DELIMITED); // tag
+    size += varint_size(value.size()); // length prefix
+    size += value.size(); // string data
+    return size;
+}
+
+size_t ProtoWriter::bytes_size(uint32_t field_number, const std::vector<uint8_t>& value)
+{
+    size_t size = varint_size((field_number << 3) | WIRE_TYPE_LENGTH_DELIMITED); // tag
+    size += varint_size(value.size()); // length prefix
+    size += value.size(); // bytes data
+    return size;
+}
+
+size_t ProtoWriter::unknown_fields_size(const UnknownFieldSet& unknown_fields)
+{
+    return unknown_fields.byte_size();
 }
 
 } // namespace litepb

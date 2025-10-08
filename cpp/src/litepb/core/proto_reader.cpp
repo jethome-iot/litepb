@@ -1,4 +1,5 @@
 #include "litepb/core/proto_reader.h"
+#include "litepb/core/unknown_fields.h"
 #include <cstring>
 
 namespace litepb {
@@ -267,6 +268,52 @@ bool ProtoReader::capture_unknown_field(WireType type, std::vector<uint8_t>& dat
             group_data.insert(group_data.end(), field_data.begin(), field_data.end());
         }
         return false; // Missing END_GROUP
+    }
+    case WIRE_TYPE_END_GROUP:
+        // Shouldn't encounter standalone END_GROUP
+        return false;
+    default:
+        return false;
+    }
+}
+
+bool ProtoReader::skip_and_save(uint32_t field_number, WireType type, UnknownFieldSet& unknown_fields)
+{
+    switch (type) {
+    case WIRE_TYPE_VARINT: {
+        uint64_t value;
+        if (!read_varint(value))
+            return false;
+        unknown_fields.add_varint(field_number, value);
+        return true;
+    }
+    case WIRE_TYPE_FIXED32: {
+        uint32_t value;
+        if (!read_fixed32(value))
+            return false;
+        unknown_fields.add_fixed32(field_number, value);
+        return true;
+    }
+    case WIRE_TYPE_FIXED64: {
+        uint64_t value;
+        if (!read_fixed64(value))
+            return false;
+        unknown_fields.add_fixed64(field_number, value);
+        return true;
+    }
+    case WIRE_TYPE_LENGTH_DELIMITED: {
+        std::vector<uint8_t> data;
+        if (!read_bytes(data))
+            return false;
+        unknown_fields.add_length_delimited(field_number, data.data(), data.size());
+        return true;
+    }
+    case WIRE_TYPE_START_GROUP: {
+        std::vector<uint8_t> data;
+        if (!capture_unknown_field(type, data))
+            return false;
+        unknown_fields.add_group(field_number, data.data(), data.size());
+        return true;
     }
     case WIRE_TYPE_END_GROUP:
         // Shouldn't encounter standalone END_GROUP
