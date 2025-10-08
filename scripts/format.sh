@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Change to project root directory (parent of scripts/)
 cd "$(dirname "$0")/.." || exit 1
 

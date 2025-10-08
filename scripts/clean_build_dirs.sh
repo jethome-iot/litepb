@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 echo "======================================"
 echo "LitePB Clean Build Script"
 echo "======================================"
