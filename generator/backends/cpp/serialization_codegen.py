@@ -92,7 +92,7 @@ class SerializationCodegen:
                 if prefixed in all_msgs:
                     return prefixed
         
-        return None
+        return ""
     
     def _topological_sort(self, deps: dict, all_msgs: dict) -> List[tuple]:
         """Topological sort to generate messages in dependency order (dependencies first)."""
@@ -145,7 +145,7 @@ class SerializationCodegen:
             # Skip map entry types - they don't need serializers
             if msg.HasField('options') and msg.options.map_entry:
                 continue
-            lines.append(f'template<> struct Serializer<{msg_type}>;')
+            lines.append(f'template<> class Serializer<{msg_type}>;')
         
         return '\n'.join(lines)
     
@@ -233,7 +233,8 @@ class SerializationCodegen:
         inline_str = 'inline ' if inline else ''
         
         lines.append(f'template<>')
-        lines.append(f'struct Serializer<{msg_type}> {{')
+        lines.append(f'class Serializer<{msg_type}> {{')
+        lines.append(f'public:')
         
         # Serialize method
         lines.append(f'    {inline_str}static bool serialize(const {msg_type}& value, litepb::OutputStream& stream) {{')
