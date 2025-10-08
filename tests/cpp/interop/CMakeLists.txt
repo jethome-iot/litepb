@@ -16,6 +16,7 @@ pkg_check_modules(ABSL_BASE REQUIRED absl_base)
 pkg_check_modules(ABSL_STRINGS REQUIRED absl_strings)
 pkg_check_modules(ABSL_HASH REQUIRED absl_hash)
 pkg_check_modules(ABSL_LOG QUIET absl_log)
+pkg_check_modules(ABSL_LOG_INITIALIZE QUIET absl_log_initialize)
 message(STATUS "Found Abseil via pkg-config")
 
 # Find protoc executable
@@ -135,6 +136,12 @@ if(ABSL_LOG_FOUND)
     target_link_directories(interop_tests PRIVATE ${ABSL_LOG_LIBRARY_DIRS})
     target_link_libraries(interop_tests PRIVATE ${ABSL_LOG_LIBRARIES})
     target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
+endif()
+
+# Add abseil log_initialize if available (required on some systems)
+if(ABSL_LOG_INITIALIZE_FOUND)
+    target_link_directories(interop_tests PRIVATE ${ABSL_LOG_INITIALIZE_LIBRARY_DIRS})
+    target_link_libraries(interop_tests PRIVATE ${ABSL_LOG_INITIALIZE_LIBRARIES})
 endif()
 
 # Compile options
