@@ -91,6 +91,7 @@ set(UNITY_SRC_DIR "${unity_SOURCE_DIR}/src")
 set(LITEPB_CORE_SOURCES
     ${LITEPB_SRC}/litepb/core/proto_reader.cpp
     ${LITEPB_SRC}/litepb/core/proto_writer.cpp
+    ${LITEPB_SRC}/litepb/core/unknown_fields.cpp
 )
 
 # Create the test executable
