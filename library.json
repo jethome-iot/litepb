@@ -38,18 +38,17 @@
     "include": [
       "cpp/include/*",
       "cpp/src/*",
-      "scripts/platformio_generator.py",
       "examples/*",
+      "generator/*",
+      "proto/*",
+      "scripts/platformio_generator.py",
       "README.md",
       "LICENSE"
     ],
     "exclude": [
-      "tests/*",
-      "coverage_report/*",
-      "tmp/*",
-      ".github/*",
-      "*.gcno",
-      "*.gcda"
+      "cpp/*/CMakeLists.txt",
+      "*.pio/*",
+      "*.venv/*"
     ]
   },
   "build": {
@@ -58,7 +57,6 @@
     "includeDir": "cpp/include",
     "srcDir": "cpp/src",
     "srcFilter": "+<*> -<.git/> -<.svn/>",
-    "extraScript": "scripts/platformio_generator.py",
-    "libLDFMode": "chain+"
+    "extraScript": "scripts/platformio_generator.py"
   }
 }

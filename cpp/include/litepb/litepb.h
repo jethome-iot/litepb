@@ -36,6 +36,14 @@
 #include "litepb/core/proto_writer.h"
 #include "litepb/core/streams.h"
 
+#ifdef LITEPB_WITH_RPC
+#include "litepb/rpc/addressing.h"
+#include "litepb/rpc/channel.h"
+#include "litepb/rpc/error.h"
+#include "litepb/rpc/framing.h"
+#include "litepb/rpc/transport.h"
+#endif // LITEPB_WITH_RPC
+
 #include <optional>
 #include <string>
 #include <unordered_map>
