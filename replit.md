@@ -16,7 +16,8 @@ LitePB is a lightweight C++ Protocol Buffer serialization and RPC framework desi
 - Adopted protobuf native enums (e.g., `pb2.FieldDescriptorProto.TYPE_MESSAGE`) instead of string conversions
 - Introduced import aliases (`from google.protobuf import descriptor_pb2 as pb2`) throughout codebase to avoid FQDN
 - Fixed C++ template specialization ordering errors for nested message types by generating in reverse declaration order
-- Test results: 155/166 PlatformIO tests passing, 38/38 example tests passing
+- Fixed message field serialization to properly write length-delimited data
+- Test results: 150/167 PlatformIO tests passing, 38/38 example tests passing
 - Maintained extensibility for adding new language backends via `LanguageGenerator` abstract class
 
 ## User Preferences

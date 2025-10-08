@@ -204,7 +204,16 @@ class SerializationCodegen:
                 wire_type = TypeMapper.get_wire_type(field.type)
                 lines.append(f'            writer.write_tag({field_num}, {wire_type});')
                 
-                if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
+                if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                    # For messages, we need to write the length first
+                    lines.append(f'            {{')
+                    lines.append(f'                litepb::BufferOutputStream temp_stream;')
+                    lines.append(f'                if (!litepb::Serializer<std::decay_t<decltype(item)>>::serialize(item, temp_stream)) return false;')
+                    lines.append(f'                writer.write_varint(temp_stream.size());')
+                    lines.append(f'                stream.write(temp_stream.data(), temp_stream.size());')
+                    lines.append(f'            }}')
+                elif field.type == pb2.FieldDescriptorProto.TYPE_GROUP:
+                    # GROUP is deprecated and not length-delimited
                     lines.append(f'            if (!litepb::Serializer<std::decay_t<decltype(item)>>::serialize(item, stream)) return false;')
                 elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                     lines.append(f'            writer.write_varint(static_cast<uint64_t>(item));')
@@ -227,7 +236,16 @@ class SerializationCodegen:
             wire_type = TypeMapper.get_wire_type(field.type)
             lines.append(f'            writer.write_tag({field_num}, {wire_type});')
             
-            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
+            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                # For messages, we need to write the length first
+                lines.append(f'            {{')
+                lines.append(f'                litepb::BufferOutputStream temp_stream;')
+                lines.append(f'                if (!litepb::Serializer<std::decay_t<decltype(value.{field_name}.value())>>::serialize(value.{field_name}.value(), temp_stream)) return false;')
+                lines.append(f'                writer.write_varint(temp_stream.size());')
+                lines.append(f'                stream.write(temp_stream.data(), temp_stream.size());')
+                lines.append(f'            }}')
+            elif field.type == pb2.FieldDescriptorProto.TYPE_GROUP:
+                # GROUP is deprecated and not length-delimited
                 lines.append(f'            if (!litepb::Serializer<std::decay_t<decltype(value.{field_name}.value())>>::serialize(value.{field_name}.value(), stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'            writer.write_varint(static_cast<uint64_t>(value.{field_name}.value()));')
@@ -253,7 +271,16 @@ class SerializationCodegen:
             wire_type = TypeMapper.get_wire_type(field.type)
             lines.append(f'            writer.write_tag({field_num}, {wire_type});')
             
-            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
+            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                # For messages, we need to write the length first
+                lines.append(f'            {{')
+                lines.append(f'                litepb::BufferOutputStream temp_stream;')
+                lines.append(f'                if (!litepb::Serializer<std::decay_t<decltype(value.{field_name})>>::serialize(value.{field_name}, temp_stream)) return false;')
+                lines.append(f'                writer.write_varint(temp_stream.size());')
+                lines.append(f'                stream.write(temp_stream.data(), temp_stream.size());')
+                lines.append(f'            }}')
+            elif field.type == pb2.FieldDescriptorProto.TYPE_GROUP:
+                # GROUP is deprecated and not length-delimited
                 lines.append(f'            if (!litepb::Serializer<std::decay_t<decltype(value.{field_name})>>::serialize(value.{field_name}, stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'            writer.write_varint(static_cast<uint64_t>(value.{field_name}));')
