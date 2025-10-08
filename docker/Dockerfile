@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libabsl-dev \
     cmake \
     build-essential \
+    pkg-config \
     clang-format \
     lcov \
     gcc \
