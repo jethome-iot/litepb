@@ -24,8 +24,7 @@ namespace litepb {
  * @note Implementations must be non-blocking to support async operation
  * @note recv() may return partial data; framing layer handles buffering
  */
-class Transport
-{
+class Transport {
 public:
     virtual ~Transport() = default;
 
@@ -48,7 +47,7 @@ public:
      * @note Addressing is handled at the transport layer
      * @note msg_id has been moved to the RpcMessage protocol buffer
      */
-    virtual bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) = 0;
+    virtual bool send(const uint8_t * data, size_t len, uint64_t src_addr, uint64_t dst_addr) = 0;
 
     /**
      * @brief Receive bytes from the transport with addressing
@@ -70,7 +69,7 @@ public:
      * @note Addressing information is extracted from transport layer
      * @note msg_id has been moved to the RpcMessage protocol buffer
      */
-    virtual size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) = 0;
+    virtual size_t recv(uint8_t * buffer, size_t max_len, uint64_t & src_addr, uint64_t & dst_addr) = 0;
 
     /**
      * @brief Check if data is available to receive
@@ -125,8 +124,7 @@ public:
  * @note Stream transports must NOT attempt to buffer complete messages
  * @note Leave message delimiting to the RPC framing layer
  */
-class StreamTransport : public Transport
-{
+class StreamTransport : public Transport {
 public:
     virtual ~StreamTransport() = default;
 };
@@ -187,8 +185,7 @@ public:
  * @note Each send_packet() transmits atomically (no fragmentation)
  * @note Implementations should respect transport MTU limits
  */
-class PacketTransport : public Transport
-{
+class PacketTransport : public Transport {
 public:
     virtual ~PacketTransport() = default;
 
@@ -207,7 +204,7 @@ public:
      * @note Return value indicates actual packet size
      * @note If packet > max_len, behavior is implementation-defined (truncate/drop)
      */
-    virtual size_t recv_packet(uint8_t* buffer, size_t max_len) = 0;
+    virtual size_t recv_packet(uint8_t * buffer, size_t max_len) = 0;
 
     /**
      * @brief Send one complete packet
@@ -224,7 +221,7 @@ public:
      * @note Caller must ensure len <= transport MTU
      * @note Exceeding MTU may cause silent drop or error (transport-dependent)
      */
-    virtual bool send_packet(const uint8_t* data, size_t len) = 0;
+    virtual bool send_packet(const uint8_t * data, size_t len) = 0;
 };
 
 } // namespace litepb

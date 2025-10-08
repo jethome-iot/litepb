@@ -138,7 +138,7 @@ void test_bidirectional_alert_after_reading()
 
     SensorSimulator sensor;
     sensor.simulate_temperature_spike();
-    sensor.set_deterministic_variation(0.0f);  // Ensure consistent temperature for reliable testing
+    sensor.set_deterministic_variation(0.0f); // Ensure consistent temperature for reliable testing
 
     bool reading_received = false;
     bool alert_received   = false;

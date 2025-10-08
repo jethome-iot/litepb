@@ -572,8 +572,7 @@ namespace litepb {
  * UDP is stateless, so multiple threads can safely use different sockets
  * bound to different ports.
  */
-class UdpTransport : public PacketTransport
-{
+class UdpTransport : public PacketTransport {
 public:
     /**
      * @brief Construct UDP transport from existing socket
@@ -589,7 +588,12 @@ public:
      * @note Client sockets may use connect() to set default peer
      * @note Caller is responsible for closing socket after transport destruction
      */
-    explicit UdpTransport(int sockfd) : sockfd_(sockfd), has_remote_addr_(false) { memset(&remote_addr_, 0, sizeof(remote_addr_)); }
+    explicit UdpTransport(int sockfd)
+        : sockfd_(sockfd)
+        , has_remote_addr_(false)
+    {
+        memset(&remote_addr_, 0, sizeof(remote_addr_));
+    }
 
     /**
      * @brief Send bytes as a UDP datagram
@@ -607,7 +611,7 @@ public:
      * @note Does not guarantee delivery (UDP best-effort)
      * @note For unconnected sockets, requires prior recv() to learn peer address
      */
-    bool send(const uint8_t* data, size_t len) override { return send_packet(data, len); }
+    bool send(const uint8_t * data, size_t len) override { return send_packet(data, len); }
 
     /**
      * @brief Receive bytes from a UDP datagram
@@ -624,7 +628,7 @@ public:
      * @note Updates remote_addr_ for subsequent send() calls
      * @note Non-blocking: returns 0 immediately if no data available
      */
-    size_t recv(uint8_t* buffer, size_t max_len) override { return recv_packet(buffer, max_len); }
+    size_t recv(uint8_t * buffer, size_t max_len) override { return recv_packet(buffer, max_len); }
 
     /**
      * @brief Check if data is available to receive
@@ -644,7 +648,7 @@ public:
         FD_SET(sockfd_, &read_fds);
 
         struct timeval timeout;
-        timeout.tv_sec  = 0;
+        timeout.tv_sec = 0;
         timeout.tv_usec = 0;
 
         int result = select(sockfd_ + 1, &read_fds, NULL, NULL, &timeout);
@@ -665,12 +669,12 @@ public:
      * @note Packets > max_len are truncated (MSG_TRUNC on some systems)
      * @note Updates remote_addr_ for send() calls
      */
-    size_t recv_packet(uint8_t* buffer, size_t max_len) override
+    size_t recv_packet(uint8_t * buffer, size_t max_len) override
     {
         struct sockaddr_in from_addr;
         socklen_t from_len = sizeof(from_addr);
 
-        ssize_t bytes = recvfrom(sockfd_, buffer, max_len, 0, (struct sockaddr*) &from_addr, &from_len);
+        ssize_t bytes = recvfrom(sockfd_, buffer, max_len, 0, (struct sockaddr *) &from_addr, &from_len);
 
         if (bytes < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNREFUSED) {
@@ -680,7 +684,7 @@ public:
         }
 
         if (bytes > 0) {
-            remote_addr_     = from_addr;
+            remote_addr_ = from_addr;
             has_remote_addr_ = true;
         }
 
@@ -702,7 +706,7 @@ public:
      * @note For unconnected sockets without prior recv(), send will fail
      * @note Exceeding MTU causes fragmentation (unreliable) or error
      */
-    bool send_packet(const uint8_t* data, size_t len) override
+    bool send_packet(const uint8_t * data, size_t len) override
     {
         if (!has_remote_addr_) {
             ssize_t bytes = ::send(sockfd_, data, len, 0);
@@ -715,9 +719,8 @@ public:
             }
 
             return bytes == static_cast<ssize_t>(len);
-        }
-        else {
-            ssize_t bytes = sendto(sockfd_, data, len, 0, (struct sockaddr*) &remote_addr_, sizeof(remote_addr_));
+        } else {
+            ssize_t bytes = sendto(sockfd_, data, len, 0, (struct sockaddr *) &remote_addr_, sizeof(remote_addr_));
 
             if (bytes < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EMSGSIZE) {
@@ -738,7 +741,7 @@ public:
      *
      * @return sockaddr_in structure with peer address (invalid if no packets received)
      */
-    const struct sockaddr_in& remote_address() const { return remote_addr_; }
+    const struct sockaddr_in & remote_address() const { return remote_addr_; }
 
     /**
      * @brief Check if remote address is known

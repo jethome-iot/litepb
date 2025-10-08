@@ -4,14 +4,16 @@
 #include <queue>
 #include <tuple>
 
-class LoopbackTransport : public litepb::StreamTransport
-{
+class LoopbackTransport : public litepb::StreamTransport {
 public:
-    LoopbackTransport() : peer_(nullptr) {}
+    LoopbackTransport()
+        : peer_(nullptr)
+    {
+    }
 
-    void connect_to_peer(LoopbackTransport* peer) { peer_ = peer; }
+    void connect_to_peer(LoopbackTransport * peer) { peer_ = peer; }
 
-    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) override
+    bool send(const uint8_t * data, size_t len, uint64_t src_addr, uint64_t dst_addr) override
     {
         if (!peer_) {
             return false;
@@ -28,7 +30,7 @@ public:
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) override
+    size_t recv(uint8_t * buffer, size_t max_len, uint64_t & src_addr, uint64_t & dst_addr) override
     {
         // Return the addressing information (msg_id now in RpcMessage)
         src_addr = pending_src_addr_;
@@ -45,7 +47,7 @@ public:
     bool available() override { return !rx_queue_.empty(); }
 
 private:
-    LoopbackTransport* peer_;
+    LoopbackTransport * peer_;
     std::queue<uint8_t> rx_queue_;
 
     // Store addressing for the current message (msg_id removed - now in RpcMessage)

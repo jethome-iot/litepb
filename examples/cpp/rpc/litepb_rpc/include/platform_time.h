@@ -161,4 +161,3 @@ uint32_t get_current_time_ms()
 
 #endif // YOUR_PLATFORM
 #endif
-

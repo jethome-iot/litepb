@@ -7,14 +7,13 @@
 #include <ctime>
 #include <iostream>
 
-class SensorSimulator
-{
+class SensorSimulator {
 public:
     SensorSimulator()
     {
         std::srand(static_cast<unsigned>(std::time(nullptr)));
-        base_temp_               = 25.0f;
-        deterministic_mode_      = false;
+        base_temp_ = 25.0f;
+        deterministic_mode_ = false;
         deterministic_variation_ = 0.0f;
     }
 
@@ -26,19 +25,16 @@ public:
         float variation;
         if (deterministic_mode_) {
             variation = deterministic_variation_;
-        }
-        else {
+        } else {
             variation = (std::rand() % 100) / 10.0f - 5.0f;
         }
         response.temperature = base_temp_ + variation;
 
         if (response.temperature > 80.0f) {
             response.status = examples::sensor::SensorStatus::ERROR;
-        }
-        else if (response.temperature > 60.0f) {
+        } else if (response.temperature > 60.0f) {
             response.status = examples::sensor::SensorStatus::WARNING;
-        }
-        else {
+        } else {
             response.status = examples::sensor::SensorStatus::OK;
         }
 
@@ -56,7 +52,7 @@ public:
 
     void set_deterministic_variation(float variation)
     {
-        deterministic_mode_      = true;
+        deterministic_mode_ = true;
         deterministic_variation_ = variation;
     }
 
@@ -66,18 +62,20 @@ private:
     float deterministic_variation_;
 };
 
-class SensorServiceImpl : public examples::sensor::SensorServiceServer
-{
+class SensorServiceImpl : public examples::sensor::SensorServiceServer {
 public:
-    SensorServiceImpl(SensorSimulator& simulator) : simulator_(simulator) {}
+    SensorServiceImpl(SensorSimulator & simulator)
+        : simulator_(simulator)
+    {
+    }
 
     litepb::Result<examples::sensor::ReadingResponse> GetReading(uint64_t src_addr,
-                                                                 const examples::sensor::ReadingRequest& request) override
+        const examples::sensor::ReadingRequest & request) override
     {
         std::cout << "  [Peer B] Received GetReading request for sensor_id=" << request.sensor_id << std::endl;
 
         litepb::Result<examples::sensor::ReadingResponse> result;
-        result.value      = simulator_.read_sensor(request.sensor_id);
+        result.value = simulator_.read_sensor(request.sensor_id);
         result.error.code = litepb::RpcError::OK;
 
         std::cout << "  [Peer B] Sending response: temp=" << result.value.temperature
@@ -86,7 +84,7 @@ public:
         return result;
     }
 
-    litepb::Result<examples::sensor::AlertAck> NotifyAlert(uint64_t src_addr, const examples::sensor::AlertEvent& request) override
+    litepb::Result<examples::sensor::AlertAck> NotifyAlert(uint64_t src_addr, const examples::sensor::AlertEvent & request) override
     {
         std::cout << "  [Peer A] ALERT RECEIVED from sensor " << request.sensor_id << ": " << request.message << std::endl;
         std::cout << "  [Peer A]   Temperature: " << request.temperature << ", Status: " << static_cast<int>(request.status)
@@ -94,13 +92,13 @@ public:
 
         litepb::Result<examples::sensor::AlertAck> result;
         result.value.received = true;
-        result.error.code     = litepb::RpcError::OK;
+        result.error.code = litepb::RpcError::OK;
 
         return result;
     }
 
 private:
-    SensorSimulator& simulator_;
+    SensorSimulator & simulator_;
 };
 
-void setup_sensor_service(litepb::RpcChannel& channel, examples::sensor::SensorServiceServer& service);
+void setup_sensor_service(litepb::RpcChannel & channel, examples::sensor::SensorServiceServer & service);

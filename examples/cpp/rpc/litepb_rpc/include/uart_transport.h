@@ -310,8 +310,7 @@ namespace litepb {
  * @see StreamTransport Base class documentation
  * @see RpcChannel For RPC message handling
  */
-class UartTransport : public StreamTransport
-{
+class UartTransport : public StreamTransport {
 public:
     /**
      * @brief Construct UART transport from Arduino HardwareSerial
@@ -343,9 +342,12 @@ public:
      * @endcode
      */
 #ifdef ARDUINO
-    explicit UartTransport(HardwareSerial& serial) : serial_(serial) {}
+    explicit UartTransport(HardwareSerial & serial)
+        : serial_(serial)
+    {
+    }
 #else
-    explicit UartTransport(HardwareSerial& serial);
+    explicit UartTransport(HardwareSerial & serial);
 #endif
 
     /**
@@ -386,7 +388,7 @@ public:
      * @see available() For checking data availability
      */
 #ifdef ARDUINO
-    bool send(const uint8_t* data, size_t len) override
+    bool send(const uint8_t * data, size_t len) override
     {
         if (!data || len == 0) {
             return len == 0;
@@ -397,7 +399,7 @@ public:
         return written > 0;
     }
 #else
-    bool send(const uint8_t* data, size_t len) override;
+    bool send(const uint8_t * data, size_t len) override;
 #endif
 
     /**
@@ -445,7 +447,7 @@ public:
      * @see send() For sending data
      */
 #ifdef ARDUINO
-    size_t recv(uint8_t* buffer, size_t max_len) override
+    size_t recv(uint8_t * buffer, size_t max_len) override
     {
         if (!buffer || max_len == 0) {
             return 0;
@@ -471,7 +473,7 @@ public:
         return read_count;
     }
 #else
-    size_t recv(uint8_t* buffer, size_t max_len) override;
+    size_t recv(uint8_t * buffer, size_t max_len) override;
 #endif
 
     /**
@@ -528,9 +530,9 @@ public:
 
 private:
 #ifdef ARDUINO
-    HardwareSerial& serial_;
+    HardwareSerial & serial_;
 #else
-    HardwareSerial* serial_;
+    HardwareSerial * serial_;
 #endif
 };
 

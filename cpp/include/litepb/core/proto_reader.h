@@ -1,14 +1,14 @@
 /**
  * @file proto_reader.h
  * @brief Protocol Buffers wire format reader
- * 
+ *
  * This header defines the ProtoReader class which handles low-level Protocol Buffers
  * wire format reading. It provides methods for reading various wire types including
  * varints, fixed-width values, and length-delimited data from input streams.
- * 
+ *
  * The reader handles all Protocol Buffers encoding rules including zigzag encoding
  * for signed integers and proper field tag parsing.
- * 
+ *
  * @copyright Copyright (c) 2025 JetHome LLC
  * @license MIT License
  */
@@ -25,19 +25,19 @@ namespace litepb {
 
 /**
  * @brief Low-level Protocol Buffers wire format reader
- * 
+ *
  * ProtoReader provides methods for reading Protocol Buffers wire format data
  * from an input stream. It handles all standard Protocol Buffers wire types
  * and encoding schemes including varints, fixed-width values, and length-delimited data.
- * 
+ *
  * This class is used internally by generated code and typically should not be
  * used directly by application code.
- * 
+ *
  * @example Reading wire format data
  * @code{.cpp}
  * litepb::BufferInputStream input(data, size);
  * litepb::ProtoReader reader(input);
- * 
+ *
  * uint32_t field_number;
  * WireType wire_type;
  * while (reader.read_tag(field_number, wire_type)) {
@@ -56,108 +56,110 @@ namespace litepb {
  * }
  * @endcode
  */
-class ProtoReader
-{
-    InputStream& stream_;
+class ProtoReader {
+    InputStream & stream_;
 
 public:
     /**
      * @brief Construct a ProtoReader for the given input stream
      * @param stream The input stream to read from
      */
-    explicit ProtoReader(InputStream& stream) : stream_(stream) {}
+    explicit ProtoReader(InputStream & stream)
+        : stream_(stream)
+    {
+    }
 
     /**
      * @brief Read a variable-length integer (varint)
-     * 
+     *
      * Reads a base-128 encoded variable-length integer from the stream.
      * Used for int32, int64, uint32, uint64, bool, and enum types.
-     * 
+     *
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error or EOF
      */
-    bool read_varint(uint64_t& value);
-    
+    bool read_varint(uint64_t & value);
+
     /**
      * @brief Read a 32-bit fixed-width value
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error
      */
-    bool read_fixed32(uint32_t& value);
-    
+    bool read_fixed32(uint32_t & value);
+
     /**
      * @brief Read a 64-bit fixed-width value
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error
      */
-    bool read_fixed64(uint64_t& value);
-    
+    bool read_fixed64(uint64_t & value);
+
     /**
      * @brief Read a signed 32-bit fixed-width value
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error
      */
-    bool read_sfixed32(int32_t& value);
-    
+    bool read_sfixed32(int32_t & value);
+
     /**
      * @brief Read a signed 64-bit fixed-width value
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error
      */
-    bool read_sfixed64(int64_t& value);
-    
+    bool read_sfixed64(int64_t & value);
+
     /**
      * @brief Read a 32-bit floating point value
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error
      */
-    bool read_float(float& value);
-    
+    bool read_float(float & value);
+
     /**
      * @brief Read a 64-bit floating point value
      * @param value Output parameter for the read value
      * @return true if read succeeded, false on error
      */
-    bool read_double(double& value);
+    bool read_double(double & value);
 
     /**
      * @brief Read length-delimited bytes
-     * 
+     *
      * Reads a varint length prefix followed by that many bytes of data.
-     * 
+     *
      * @param data Output vector to store the read bytes
      * @return true if read succeeded, false on error
      */
-    bool read_bytes(std::vector<uint8_t>& data);
-    
+    bool read_bytes(std::vector<uint8_t> & data);
+
     /**
      * @brief Read a length-delimited string
-     * 
+     *
      * Reads a varint length prefix followed by UTF-8 string data.
-     * 
+     *
      * @param str Output string to store the read text
      * @return true if read succeeded, false on error
      */
-    bool read_string(std::string& str);
+    bool read_string(std::string & str);
 
     /**
      * @brief Read a field tag (field number and wire type)
-     * 
+     *
      * Reads and decodes a field tag which contains the field number
      * and wire type information.
-     * 
+     *
      * @param field_number Output parameter for the field number
      * @param type Output parameter for the wire type
      * @return true if a tag was read, false on EOF
      */
-    bool read_tag(uint32_t& field_number, WireType& type);
+    bool read_tag(uint32_t & field_number, WireType & type);
 
     /**
      * @brief Skip a field with the given wire type
-     * 
+     *
      * Skips over the data for a field without parsing it. Useful for
      * ignoring unknown fields or optional fields that aren't needed.
-     * 
+     *
      * @param type The wire type of the field to skip
      * @return true if skip succeeded, false on error
      */
@@ -165,25 +167,25 @@ public:
 
     /**
      * @brief Read a zigzag-encoded signed 32-bit integer
-     * 
+     *
      * Reads a varint and decodes it using zigzag decoding for efficient
      * representation of negative numbers.
-     * 
+     *
      * @param value Output parameter for the decoded value
      * @return true if read succeeded, false on error
      */
-    bool read_sint32(int32_t& value);
-    
+    bool read_sint32(int32_t & value);
+
     /**
      * @brief Read a zigzag-encoded signed 64-bit integer
-     * 
+     *
      * Reads a varint and decodes it using zigzag decoding for efficient
      * representation of negative numbers.
-     * 
+     *
      * @param value Output parameter for the decoded value
      * @return true if read succeeded, false on error
      */
-    bool read_sint64(int64_t& value);
+    bool read_sint64(int64_t & value);
 
     /**
      * @brief Get the current read position in the stream

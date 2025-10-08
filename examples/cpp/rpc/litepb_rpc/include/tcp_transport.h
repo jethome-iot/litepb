@@ -648,8 +648,7 @@ namespace litepb {
  * @see StreamTransport Base class documentation
  * @see RpcChannel For RPC message handling
  */
-class TcpTransport : public StreamTransport
-{
+class TcpTransport : public StreamTransport {
 public:
     /**
      * @brief Construct TCP transport from socket file descriptor
@@ -684,7 +683,10 @@ public:
      * TcpTransport transport(sockfd);
      * @endcode
      */
-    explicit TcpTransport(int sockfd) : sockfd_(sockfd) {}
+    explicit TcpTransport(int sockfd)
+        : sockfd_(sockfd)
+    {
+    }
 
     /**
      * @brief Send bytes over TCP socket
@@ -705,7 +707,7 @@ public:
      * - EPIPE/ECONNRESET: Connection broken, returns false
      * - Other errors: Returns false
      */
-    bool send(const uint8_t* data, size_t len) override
+    bool send(const uint8_t * data, size_t len) override
     {
         if (len == 0) {
             return true;
@@ -742,7 +744,7 @@ public:
      * - Connection closed: Returns 0
      * - Other errors: Returns 0
      */
-    size_t recv(uint8_t* buffer, size_t max_len) override
+    size_t recv(uint8_t * buffer, size_t max_len) override
     {
         if (max_len == 0) {
             return 0;
@@ -786,7 +788,7 @@ public:
         FD_SET(sockfd_, &read_fds);
 
         struct timeval timeout;
-        timeout.tv_sec  = 0;
+        timeout.tv_sec = 0;
         timeout.tv_usec = 0;
 
         int result = select(sockfd_ + 1, &read_fds, nullptr, nullptr, &timeout);
@@ -803,4 +805,3 @@ private:
 };
 
 } // namespace litepb
-

@@ -5,14 +5,13 @@
 #include <ctime>
 #include <iostream>
 
-class SensorSimulator
-{
+class SensorSimulator {
 public:
     SensorSimulator()
     {
         std::srand(static_cast<unsigned>(std::time(nullptr)));
-        base_temp_               = 25.0f;
-        deterministic_mode_      = false;
+        base_temp_ = 25.0f;
+        deterministic_mode_ = false;
         deterministic_variation_ = 0.0f;
     }
 
@@ -24,19 +23,16 @@ public:
         float variation;
         if (deterministic_mode_) {
             variation = deterministic_variation_;
-        }
-        else {
+        } else {
             variation = (std::rand() % 100) / 10.0f - 5.0f;
         }
         response.temperature = base_temp_ + variation;
 
         if (response.temperature > 80.0f) {
             response.status = examples::sensor::SensorStatus::ERROR;
-        }
-        else if (response.temperature > 60.0f) {
+        } else if (response.temperature > 60.0f) {
             response.status = examples::sensor::SensorStatus::WARNING;
-        }
-        else {
+        } else {
             response.status = examples::sensor::SensorStatus::OK;
         }
 
@@ -54,7 +50,7 @@ public:
 
     void set_deterministic_variation(float variation)
     {
-        deterministic_mode_      = true;
+        deterministic_mode_ = true;
         deterministic_variation_ = variation;
     }
 
