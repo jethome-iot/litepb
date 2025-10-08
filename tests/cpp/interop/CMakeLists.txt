@@ -78,7 +78,7 @@ FetchContent_MakeAvailable(unity)
 
 # Set up paths
 set(LITEPB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
-set(LITEPB_GENERATOR "${LITEPB_ROOT}/generator/litepb_gen.py")
+set(LITEPB_GENERATOR "${LITEPB_ROOT}/litepb_gen")
 set(LITEPB_INCLUDE "${LITEPB_ROOT}/cpp/include")
 set(LITEPB_SRC "${LITEPB_ROOT}/cpp/src")
 
@@ -107,7 +107,7 @@ add_custom_command(
     OUTPUT 
         ${GENERATED_DIR}/test_vectors.pb.h
         ${GENERATED_DIR}/test_vectors.pb.cpp
-    COMMAND python3 ${LITEPB_GENERATOR}
+    COMMAND ${LITEPB_GENERATOR}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
         -o ${GENERATED_DIR}
         -I ${CMAKE_CURRENT_SOURCE_DIR}
