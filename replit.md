@@ -8,7 +8,12 @@ Communication style: Simple, everyday language
 
 **Development Practices:**
 - Always set executable permissions (+x) for all scripts in `scripts/*.{sh,py}`
-- All bash scripts should include `set -e` at the top to exit immediately if any command fails, preventing cascading errors
+- Bash script standards:
+  - Start all scripts with `set -e` (or `set -o pipefail` for pipeline-heavy scripts)
+  - Import common error handling: `source "${SCRIPT_DIR}/lib/common.sh"`
+  - This provides automatic error reporting with line numbers via `error_handler()` function
+  - Use `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"` for reliable path resolution
+  - See existing scripts in `scripts/*.sh` for examples
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 - Use `#pragma once` at the top of all C++ header files instead of traditional include guards - this is simpler, less error-prone, and supported by all modern compilers
 - Run tests after each build: 1) `pio test` 2) `scripts/run_interop_tests.sh` 3) `scripts/run_examples_tests.sh`
