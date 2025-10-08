@@ -1147,15 +1147,22 @@ class CppGenerator(LanguageGenerator):
 
     def get_field_default(self, field: descriptor_pb2.FieldDescriptorProto) -> Optional[str]:
         """Get default value for field initialization."""
-        if self.get_field_label_name(field.label) in ('LABEL_REPEATED', 'LABEL_OPTIONAL'):
+        assert self.current_proto is not None, "current_proto must be set before calling get_field_default"
+        syntax = self.current_proto.syntax if self.current_proto.syntax else 'proto2'
+        
+        # Repeated fields don't need initialization (vector has default constructor)
+        if self.get_field_label_name(field.label) == 'LABEL_REPEATED':
+            return None
+        
+        # Fields wrapped in std::optional don't need initialization
+        if self.uses_optional(field, syntax):
             return None
         
         if field.HasField('default_value'):
             # Use TypeMapper.get_default_value with descriptor objects
-            assert self.current_proto is not None, "current_proto must be set before calling get_field_default"
             return TypeMapper.get_default_value(field, self.current_proto)
         
-        # For proto3, most types have implicit defaults
+        # For proto3 implicit fields and proto2 required fields, provide default values
         if field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM:
             return f'static_cast<{TypeMapper.qualify_type_name(field.type_name, "")}>(0)'
         
