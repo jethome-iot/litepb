@@ -162,6 +162,11 @@ class MessageCodegen:
             oneof_type = f'std::variant<{", ".join(variant_types)}>'
             lines.append(f'    {oneof_type} {oneof.name};')
 
+        # Add unknown fields member for forward/backward compatibility
+        lines.append('')
+        lines.append('    // Unknown field preservation for forward/backward compatibility')
+        lines.append('    litepb::UnknownFieldSet unknown_fields;')
+
         lines.append('};')
 
         return '\n'.join(lines)
