@@ -18,28 +18,39 @@ endif()
 
 include(${CPM_DOWNLOAD_LOCATION})
 
-# Try to find system protobuf first (fast in CI), fall back to CPM (for local dev)
-find_package(Protobuf QUIET)
+# Use pkg-config to find system libraries (works better with Nix)
+find_package(PkgConfig)
 
-if(Protobuf_FOUND)
-  message(STATUS "Using system Protobuf ${Protobuf_VERSION}")
+set(USE_SYSTEM_LIBS FALSE)
+
+if(PKG_CONFIG_FOUND)
+  # Try to find protobuf and abseil via pkg-config
+  pkg_check_modules(PROTOBUF QUIET protobuf)
+  pkg_check_modules(ABSL_BASE QUIET absl_base)
   
-  # Need to find abseil too when using system protobuf
-  find_package(absl QUIET)
-  if(NOT absl_FOUND)
-    message(STATUS "System Protobuf found but Abseil not found, downloading Abseil via CPM")
-    CPMAddPackage(
-      NAME abseil-cpp
-      URL https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.0.tar.gz
-      VERSION 20240722.0
-      DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-      OPTIONS
-        "ABSL_ENABLE_INSTALL ON"
-        "ABSL_PROPAGATE_CXX_STD ON"
-    )
-  else()
-    message(STATUS "Using system Abseil")
+  if(PROTOBUF_FOUND AND ABSL_BASE_FOUND)
+    set(USE_SYSTEM_LIBS TRUE)
+    message(STATUS "Found system libraries via pkg-config:")
+    message(STATUS "  Protobuf: ${PROTOBUF_VERSION}")
+    message(STATUS "  Abseil: found")
   endif()
+endif()
+
+if(USE_SYSTEM_LIBS)
+  # Create imported targets for system libraries
+  message(STATUS "Using system Protobuf and Abseil via pkg-config")
+  
+  # We still need protoc executable
+  find_program(PROTOC_EXECUTABLE protoc)
+  if(NOT PROTOC_EXECUTABLE)
+    message(FATAL_ERROR "protoc executable not found")
+  endif()
+  
+  # Create a target for protoc
+  add_executable(protobuf::protoc IMPORTED)
+  set_target_properties(protobuf::protoc PROPERTIES
+    IMPORTED_LOCATION ${PROTOC_EXECUTABLE}
+  )
 else()
   message(STATUS "System Protobuf not found, downloading via CPM")
   
@@ -147,32 +158,57 @@ target_include_directories(interop_tests PRIVATE
 )
 
 # Link libraries
-# Use protobuf::libprotobuf for system installs, protobuf::protobuf for CPM builds
-if(TARGET protobuf::libprotobuf)
-  set(PROTOBUF_LIBRARY protobuf::libprotobuf)
+if(USE_SYSTEM_LIBS)
+  # Use pkg-config for system libraries
+  target_link_directories(interop_tests PRIVATE ${PROTOBUF_LIBRARY_DIRS})
+  target_link_libraries(interop_tests PRIVATE ${PROTOBUF_LIBRARIES})
+  target_include_directories(interop_tests PRIVATE ${PROTOBUF_INCLUDE_DIRS})
+  target_compile_options(interop_tests PRIVATE ${PROTOBUF_CFLAGS_OTHER})
+  
+  # Link abseil libraries that we need
+  pkg_check_modules(ABSL_STRINGS REQUIRED absl_strings)
+  pkg_check_modules(ABSL_HASH REQUIRED absl_hash)
+  pkg_check_modules(ABSL_LOG QUIET absl_log)
+  
+  target_link_directories(interop_tests PRIVATE ${ABSL_BASE_LIBRARY_DIRS})
+  target_link_libraries(interop_tests PRIVATE 
+    ${ABSL_BASE_LIBRARIES}
+    ${ABSL_STRINGS_LIBRARIES} 
+    ${ABSL_HASH_LIBRARIES}
+  )
+  
+  if(ABSL_LOG_FOUND)
+    target_link_libraries(interop_tests PRIVATE ${ABSL_LOG_LIBRARIES})
+    target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
+  endif()
 else()
-  set(PROTOBUF_LIBRARY protobuf::protobuf)
-endif()
+  # Use CMake targets for CPM builds
+  if(TARGET protobuf::libprotobuf)
+    set(PROTOBUF_LIBRARY protobuf::libprotobuf)
+  else()
+    set(PROTOBUF_LIBRARY protobuf::protobuf)
+  endif()
 
-target_link_libraries(interop_tests PRIVATE
-    ${PROTOBUF_LIBRARY}
-    absl::strings
-    absl::hash
-    absl::base
-)
+  target_link_libraries(interop_tests PRIVATE
+      ${PROTOBUF_LIBRARY}
+      absl::strings
+      absl::hash
+      absl::base
+  )
 
-# absl::log_initialize is needed for absl::InitializeLog()
-# Also need log_internal libraries that protobuf uses
-if(TARGET absl::log_initialize)
-    target_link_libraries(interop_tests PRIVATE 
-        absl::log_initialize
-        absl::log_internal_check_op
-        absl::log_internal_message
-    )
-    target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
-elseif(TARGET absl::log)
-    target_link_libraries(interop_tests PRIVATE absl::log)
-    target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
+  # absl::log_initialize is needed for absl::InitializeLog()
+  # Also need log_internal libraries that protobuf uses
+  if(TARGET absl::log_initialize)
+      target_link_libraries(interop_tests PRIVATE 
+          absl::log_initialize
+          absl::log_internal_check_op
+          absl::log_internal_message
+      )
+      target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
+  elseif(TARGET absl::log)
+      target_link_libraries(interop_tests PRIVATE absl::log)
+      target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
+  endif()
 endif()
 
 # Set preprocessor defines for Unity configuration
