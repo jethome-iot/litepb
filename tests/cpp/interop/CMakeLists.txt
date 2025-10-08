@@ -4,81 +4,37 @@ project(litepb_interop_tests C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# CPM Package Manager auto-download
-set(CPM_DOWNLOAD_VERSION 0.40.2)
-set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+# Find required system libraries
+find_package(PkgConfig REQUIRED)
 
-if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))
-  message(STATUS "Downloading CPM.cmake")
-  file(DOWNLOAD
-    https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake
-    ${CPM_DOWNLOAD_LOCATION}
-  )
+# Find Protobuf
+pkg_check_modules(PROTOBUF REQUIRED protobuf)
+message(STATUS "Found Protobuf ${PROTOBUF_VERSION} via pkg-config")
+
+# Find Abseil
+pkg_check_modules(ABSL_BASE REQUIRED absl_base)
+pkg_check_modules(ABSL_STRINGS REQUIRED absl_strings)
+pkg_check_modules(ABSL_HASH REQUIRED absl_hash)
+pkg_check_modules(ABSL_LOG QUIET absl_log)
+message(STATUS "Found Abseil via pkg-config")
+
+# Find protoc executable
+find_program(PROTOC_EXECUTABLE protoc REQUIRED)
+if(NOT PROTOC_EXECUTABLE)
+  message(FATAL_ERROR "protoc executable not found. Please install protobuf compiler:\n"
+          "  Ubuntu/Debian: apt install protobuf-compiler\n"
+          "  macOS: brew install protobuf\n"
+          "  Fedora: dnf install protobuf-compiler")
 endif()
+message(STATUS "Found protoc: ${PROTOC_EXECUTABLE}")
 
-include(${CPM_DOWNLOAD_LOCATION})
+# Create a target for protoc
+add_executable(protobuf::protoc IMPORTED)
+set_target_properties(protobuf::protoc PROPERTIES
+  IMPORTED_LOCATION ${PROTOC_EXECUTABLE}
+)
 
-# Use pkg-config to find system libraries (works better with Nix)
-find_package(PkgConfig)
-
-set(USE_SYSTEM_LIBS FALSE)
-
-if(PKG_CONFIG_FOUND)
-  # Try to find protobuf and abseil via pkg-config
-  pkg_check_modules(PROTOBUF QUIET protobuf)
-  pkg_check_modules(ABSL_BASE QUIET absl_base)
-  
-  if(PROTOBUF_FOUND AND ABSL_BASE_FOUND)
-    set(USE_SYSTEM_LIBS TRUE)
-    message(STATUS "Found system libraries via pkg-config:")
-    message(STATUS "  Protobuf: ${PROTOBUF_VERSION}")
-    message(STATUS "  Abseil: found")
-  endif()
-endif()
-
-if(USE_SYSTEM_LIBS)
-  # Create imported targets for system libraries
-  message(STATUS "Using system Protobuf and Abseil via pkg-config")
-  
-  # We still need protoc executable
-  find_program(PROTOC_EXECUTABLE protoc)
-  if(NOT PROTOC_EXECUTABLE)
-    message(FATAL_ERROR "protoc executable not found")
-  endif()
-  
-  # Create a target for protoc
-  add_executable(protobuf::protoc IMPORTED)
-  set_target_properties(protobuf::protoc PROPERTIES
-    IMPORTED_LOCATION ${PROTOC_EXECUTABLE}
-  )
-else()
-  message(STATUS "System Protobuf not found, downloading via CPM")
-  
-  # Add Abseil (must be before Protobuf)
-  CPMAddPackage(
-    NAME abseil-cpp
-    URL https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.0.tar.gz
-    VERSION 20240722.0
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    OPTIONS
-      "ABSL_ENABLE_INSTALL ON"
-      "ABSL_PROPAGATE_CXX_STD ON"
-  )
-  
-  # Add Protobuf
-  CPMAddPackage(
-    NAME protobuf
-    URL https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.4.tar.gz
-    VERSION 27.4
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    OPTIONS
-      "protobuf_BUILD_TESTS OFF"
-      "protobuf_ABSL_PROVIDER package"
-      "protobuf_BUILD_SHARED_LIBS OFF"
-  )
-endif()
-
-# Fetch Unity test framework
+# Fetch Unity test framework (lightweight, OK to download)
 include(FetchContent)
 FetchContent_Declare(
     unity
@@ -155,61 +111,33 @@ target_include_directories(interop_tests PRIVATE
     ${GENERATED_DIR}/protoc
     ${LITEPB_INCLUDE}
     ${UNITY_SRC_DIR}
+    ${PROTOBUF_INCLUDE_DIRS}
 )
 
 # Link libraries
-if(USE_SYSTEM_LIBS)
-  # Use pkg-config for system libraries
-  target_link_directories(interop_tests PRIVATE ${PROTOBUF_LIBRARY_DIRS})
-  target_link_libraries(interop_tests PRIVATE ${PROTOBUF_LIBRARIES})
-  target_include_directories(interop_tests PRIVATE ${PROTOBUF_INCLUDE_DIRS})
-  target_compile_options(interop_tests PRIVATE ${PROTOBUF_CFLAGS_OTHER})
-  
-  # Link abseil libraries that we need
-  pkg_check_modules(ABSL_STRINGS REQUIRED absl_strings)
-  pkg_check_modules(ABSL_HASH REQUIRED absl_hash)
-  pkg_check_modules(ABSL_LOG QUIET absl_log)
-  
-  target_link_directories(interop_tests PRIVATE ${ABSL_BASE_LIBRARY_DIRS})
-  target_link_libraries(interop_tests PRIVATE 
+target_link_directories(interop_tests PRIVATE 
+    ${PROTOBUF_LIBRARY_DIRS}
+    ${ABSL_BASE_LIBRARY_DIRS}
+    ${ABSL_STRINGS_LIBRARY_DIRS}
+    ${ABSL_HASH_LIBRARY_DIRS}
+)
+
+target_link_libraries(interop_tests PRIVATE 
+    ${PROTOBUF_LIBRARIES}
     ${ABSL_BASE_LIBRARIES}
     ${ABSL_STRINGS_LIBRARIES} 
     ${ABSL_HASH_LIBRARIES}
-  )
-  
-  if(ABSL_LOG_FOUND)
+)
+
+# Add abseil log if available
+if(ABSL_LOG_FOUND)
+    target_link_directories(interop_tests PRIVATE ${ABSL_LOG_LIBRARY_DIRS})
     target_link_libraries(interop_tests PRIVATE ${ABSL_LOG_LIBRARIES})
     target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
-  endif()
-else()
-  # Use CMake targets for CPM builds
-  if(TARGET protobuf::libprotobuf)
-    set(PROTOBUF_LIBRARY protobuf::libprotobuf)
-  else()
-    set(PROTOBUF_LIBRARY protobuf::protobuf)
-  endif()
-
-  target_link_libraries(interop_tests PRIVATE
-      ${PROTOBUF_LIBRARY}
-      absl::strings
-      absl::hash
-      absl::base
-  )
-
-  # absl::log_initialize is needed for absl::InitializeLog()
-  # Also need log_internal libraries that protobuf uses
-  if(TARGET absl::log_initialize)
-      target_link_libraries(interop_tests PRIVATE 
-          absl::log_initialize
-          absl::log_internal_check_op
-          absl::log_internal_message
-      )
-      target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
-  elseif(TARGET absl::log)
-      target_link_libraries(interop_tests PRIVATE absl::log)
-      target_compile_definitions(interop_tests PRIVATE HAVE_ABSL_LOG)
-  endif()
 endif()
+
+# Compile options
+target_compile_options(interop_tests PRIVATE ${PROTOBUF_CFLAGS_OTHER})
 
 # Set preprocessor defines for Unity configuration
 target_compile_definitions(interop_tests PRIVATE
