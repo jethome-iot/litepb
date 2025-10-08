@@ -4,7 +4,7 @@ Type mapper for converting protobuf types to C++ types.
 Uses protobuf enums directly instead of string conversions.
 """
 
-from typing import Optional
+from typing import Dict, Optional
 from google.protobuf import descriptor_pb2 as pb2
 
 
@@ -12,7 +12,7 @@ class TypeMapper:
     """Maps protobuf types to C++ types and provides type utilities."""
     
     # Map from protobuf type enums to C++ types
-    CPP_TYPE_MAP = {
+    CPP_TYPE_MAP: Dict[int, str] = {
         pb2.FieldDescriptorProto.TYPE_DOUBLE: 'double',
         pb2.FieldDescriptorProto.TYPE_FLOAT: 'float',
         pb2.FieldDescriptorProto.TYPE_INT64: 'int64_t',
@@ -31,7 +31,7 @@ class TypeMapper:
     }
     
     # Wire type mapping
-    WIRE_TYPE_MAP = {
+    WIRE_TYPE_MAP: Dict[int, str] = {
         pb2.FieldDescriptorProto.TYPE_DOUBLE: 'litepb::WIRE_TYPE_FIXED64',
         pb2.FieldDescriptorProto.TYPE_FLOAT: 'litepb::WIRE_TYPE_FIXED32',
         pb2.FieldDescriptorProto.TYPE_INT64: 'litepb::WIRE_TYPE_VARINT',
@@ -52,7 +52,7 @@ class TypeMapper:
     }
     
     # Default values for each type
-    DEFAULT_VALUES = {
+    DEFAULT_VALUES: Dict[int, str] = {
         pb2.FieldDescriptorProto.TYPE_DOUBLE: '0.0',
         pb2.FieldDescriptorProto.TYPE_FLOAT: '0.0f',
         pb2.FieldDescriptorProto.TYPE_INT64: '0',
@@ -213,7 +213,7 @@ class TypeMapper:
     @classmethod
     def get_serialization_method(cls, field_type: int) -> str:
         """Get the ProtoWriter method name for serializing a type."""
-        method_map = {
+        method_map: Dict[int, str] = {
             pb2.FieldDescriptorProto.TYPE_DOUBLE: 'write_double',
             pb2.FieldDescriptorProto.TYPE_FLOAT: 'write_float',
             pb2.FieldDescriptorProto.TYPE_INT64: 'write_varint',
@@ -235,7 +235,7 @@ class TypeMapper:
     @classmethod
     def get_deserialization_method(cls, field_type: int) -> str:
         """Get the ProtoReader method name for deserializing a type."""
-        method_map = {
+        method_map: Dict[int, str] = {
             pb2.FieldDescriptorProto.TYPE_DOUBLE: 'read_double',
             pb2.FieldDescriptorProto.TYPE_FLOAT: 'read_float',
             pb2.FieldDescriptorProto.TYPE_INT64: 'read_varint',
