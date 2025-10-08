@@ -53,7 +53,7 @@ struct Timestamp {
      */
     std::chrono::system_clock::time_point to_time_point() const {
         using namespace std::chrono;
-        auto duration = seconds * seconds{1} + nanoseconds{nanos};
+        auto duration = std::chrono::seconds{seconds} + std::chrono::nanoseconds{nanos};
         return system_clock::time_point{duration_cast<system_clock::duration>(duration)};
     }
     

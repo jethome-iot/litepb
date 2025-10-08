@@ -216,9 +216,12 @@ public:
      */
     bool read(uint8_t * data, size_t size) override
     {
+        if (size == 0) {
+            return true;
+        }
         if (pos_ + size > size_)
             return false;
-        if (data && size > 0) {
+        if (data && data_) {
             std::memcpy(data, data_ + pos_, size);
         }
         pos_ += size;
@@ -383,9 +386,12 @@ public:
      */
     bool read(uint8_t * data, size_t size) override
     {
+        if (size == 0) {
+            return true;
+        }
         if (pos_ + size > size_)
             return false;
-        if (data && size > 0) {
+        if (data) {
             std::memcpy(data, buffer_ + pos_, size);
         }
         pos_ += size;

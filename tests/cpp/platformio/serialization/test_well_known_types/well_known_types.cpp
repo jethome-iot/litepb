@@ -290,7 +290,7 @@ void test_wrapper_default_values() {
     TEST_ASSERT_EQUAL(0, output.size());
 }
 
-int main(int argc, char **argv) {
+int runTests() {
     UNITY_BEGIN();
     
     RUN_TEST(test_empty_serialization);

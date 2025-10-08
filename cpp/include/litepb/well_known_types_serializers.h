@@ -44,12 +44,10 @@ public:
     
     inline static bool parse(::google::protobuf::Empty& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
+        uint32_t field_number;
+        litepb::WireType wire_type;
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
-            
+        while (reader.read_tag(field_number, wire_type)) {
             // All fields are unknown for Empty
             if (!reader.skip_and_save(field_number, wire_type, value.unknown_fields)) return false;
         }
@@ -76,41 +74,45 @@ public:
         
         // Field 1: seconds (int64)
         if (value.seconds != 0) {
-            if (!writer.write_varint(1, static_cast<int64_t>(value.seconds))) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.seconds))) return false;
         }
         
         // Field 2: nanos (int32)
         if (value.nanos != 0) {
-            if (!writer.write_varint(2, static_cast<int32_t>(value.nanos))) return false;
+            if (!writer.write_tag(2, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.nanos))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
     
     inline static bool parse(::google::protobuf::Timestamp& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
+        uint32_t field_number;
+        litepb::WireType wire_type;
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
-            
+        while (reader.read_tag(field_number, wire_type)) {
             switch (field_number) {
                 case 1: // seconds
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    if (!reader.read_varint(value.seconds)) return false;
+                    {
+                        uint64_t temp;
+                        if (!reader.read_varint(temp)) return false;
+                        value.seconds = static_cast<int64_t>(temp);
+                    }
                     break;
                     
                 case 2: // nanos
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    int64_t nanos_64;
-                    if (!reader.read_varint(nanos_64)) return false;
-                    value.nanos = static_cast<int32_t>(nanos_64);
+                    {
+                        uint64_t temp;
+                        if (!reader.read_varint(temp)) return false;
+                        value.nanos = static_cast<int32_t>(temp);
+                    }
                     break;
                     
                 default:
@@ -126,11 +128,11 @@ public:
         size_t size = 0;
         
         if (value.seconds != 0) {
-            size += litepb::ProtoWriter::varint_size(1, static_cast<int64_t>(value.seconds));
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.seconds));
         }
         
         if (value.nanos != 0) {
-            size += litepb::ProtoWriter::varint_size(2, static_cast<int32_t>(value.nanos));
+            size += litepb::ProtoWriter::varint_size(((2) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.nanos));
         }
         
         // Unknown fields size
@@ -149,18 +151,18 @@ public:
         
         // Field 1: seconds (int64)
         if (value.seconds != 0) {
-            if (!writer.write_varint(1, static_cast<int64_t>(value.seconds))) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.seconds))) return false;
         }
         
         // Field 2: nanos (int32)
         if (value.nanos != 0) {
-            if (!writer.write_varint(2, static_cast<int32_t>(value.nanos))) return false;
+            if (!writer.write_tag(2, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.nanos))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -168,22 +170,28 @@ public:
     inline static bool parse(::google::protobuf::Duration& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // seconds
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    if (!reader.read_varint(value.seconds)) return false;
+                    {
+                        uint64_t temp;
+                        if (!reader.read_varint(temp)) return false;
+                        value.seconds = static_cast<int64_t>(temp);
+                    }
                     break;
                     
                 case 2: // nanos
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    int64_t nanos_64;
-                    if (!reader.read_varint(nanos_64)) return false;
-                    value.nanos = static_cast<int32_t>(nanos_64);
+                    {
+                        uint64_t temp;
+                        if (!reader.read_varint(temp)) return false;
+                        value.nanos = static_cast<int32_t>(temp);
+                    }
                     break;
                     
                 default:
@@ -199,11 +207,11 @@ public:
         size_t size = 0;
         
         if (value.seconds != 0) {
-            size += litepb::ProtoWriter::varint_size(1, static_cast<int64_t>(value.seconds));
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.seconds));
         }
         
         if (value.nanos != 0) {
-            size += litepb::ProtoWriter::varint_size(2, static_cast<int32_t>(value.nanos));
+            size += litepb::ProtoWriter::varint_size(((2) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.nanos));
         }
         
         // Unknown fields size
@@ -222,13 +230,12 @@ public:
         
         // Field 1: value (string)
         if (!value.value.empty()) {
-            if (!writer.write_string(1, value.value)) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_LENGTH_DELIMITED)) return false;
+            if (!writer.write_string(value.value)) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -236,10 +243,10 @@ public:
     inline static bool parse(::google::protobuf::StringValue& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
@@ -279,13 +286,12 @@ public:
         
         // Field 1: value (int32)
         if (value.value != 0) {
-            if (!writer.write_varint(1, static_cast<int32_t>(value.value))) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.value))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -293,15 +299,15 @@ public:
     inline static bool parse(::google::protobuf::Int32Value& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    int64_t value_64;
+                    uint64_t value_64;
                     if (!reader.read_varint(value_64)) return false;
                     value.value = static_cast<int32_t>(value_64);
                     break;
@@ -319,7 +325,7 @@ public:
         size_t size = 0;
         
         if (value.value != 0) {
-            size += litepb::ProtoWriter::varint_size(1, static_cast<int32_t>(value.value));
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.value));
         }
         
         // Unknown fields size
@@ -338,13 +344,12 @@ public:
         
         // Field 1: value (int64)
         if (value.value != 0) {
-            if (!writer.write_varint(1, static_cast<int64_t>(value.value))) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.value))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -352,15 +357,19 @@ public:
     inline static bool parse(::google::protobuf::Int64Value& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    if (!reader.read_varint(value.value)) return false;
+                    {
+                        uint64_t temp;
+                        if (!reader.read_varint(temp)) return false;
+                        value.value = static_cast<int32_t>(temp);
+                    }
                     break;
                     
                 default:
@@ -376,7 +385,7 @@ public:
         size_t size = 0;
         
         if (value.value != 0) {
-            size += litepb::ProtoWriter::varint_size(1, static_cast<int64_t>(value.value));
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.value));
         }
         
         // Unknown fields size
@@ -395,13 +404,12 @@ public:
         
         // Field 1: value (uint32)
         if (value.value != 0) {
-            if (!writer.write_varint(1, static_cast<uint32_t>(value.value))) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(static_cast<uint32_t>(value.value)))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -409,15 +417,15 @@ public:
     inline static bool parse(::google::protobuf::UInt32Value& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    uint64_t value_64;
+                    uuint64_t value_64;
                     if (!reader.read_varint(value_64)) return false;
                     value.value = static_cast<uint32_t>(value_64);
                     break;
@@ -435,7 +443,7 @@ public:
         size_t size = 0;
         
         if (value.value != 0) {
-            size += litepb::ProtoWriter::varint_size(1, static_cast<uint32_t>(value.value));
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.value));
         }
         
         // Unknown fields size
@@ -454,13 +462,12 @@ public:
         
         // Field 1: value (uint64)
         if (value.value != 0) {
-            if (!writer.write_varint(1, static_cast<uint64_t>(value.value))) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(static_cast<uint64_t>(value.value)))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -468,15 +475,19 @@ public:
     inline static bool parse(::google::protobuf::UInt64Value& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    if (!reader.read_varint(value.value)) return false;
+                    {
+                        uint64_t temp;
+                        if (!reader.read_varint(temp)) return false;
+                        value.value = static_cast<int32_t>(temp);
+                    }
                     break;
                     
                 default:
@@ -492,7 +503,7 @@ public:
         size_t size = 0;
         
         if (value.value != 0) {
-            size += litepb::ProtoWriter::varint_size(1, static_cast<uint64_t>(value.value));
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(static_cast<uint64_t>(value.value));
         }
         
         // Unknown fields size
@@ -511,13 +522,12 @@ public:
         
         // Field 1: value (float)
         if (value.value != 0.0f) {
-            if (!writer.write_float(1, value.value)) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_FIXED32)) return false;
+            if (!writer.write_float(value.value)) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -525,10 +535,10 @@ public:
     inline static bool parse(::google::protobuf::FloatValue& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
@@ -549,7 +559,7 @@ public:
         size_t size = 0;
         
         if (value.value != 0.0f) {
-            size += litepb::ProtoWriter::float_size(1, value.value);
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 5) + litepb::ProtoWriter::fixed32_size();
         }
         
         // Unknown fields size
@@ -568,13 +578,12 @@ public:
         
         // Field 1: value (double)
         if (value.value != 0.0) {
-            if (!writer.write_double(1, value.value)) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_FIXED64)) return false;
+            if (!writer.write_double(value.value)) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -582,10 +591,10 @@ public:
     inline static bool parse(::google::protobuf::DoubleValue& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
@@ -606,7 +615,7 @@ public:
         size_t size = 0;
         
         if (value.value != 0.0) {
-            size += litepb::ProtoWriter::double_size(1, value.value);
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 1) + litepb::ProtoWriter::fixed64_size();
         }
         
         // Unknown fields size
@@ -625,13 +634,12 @@ public:
         
         // Field 1: value (bool)
         if (value.value) {
-            if (!writer.write_varint(1, value.value ? 1 : 0)) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_VARINT)) return false;
+            if (!writer.write_varint(static_cast<uint64_t>(value.value ? 1 : 0))) return false;
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -639,10 +647,10 @@ public:
     inline static bool parse(::google::protobuf::BoolValue& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
@@ -665,7 +673,7 @@ public:
         size_t size = 0;
         
         if (value.value) {
-            size += litepb::ProtoWriter::varint_size(1, 1);
+            size += litepb::ProtoWriter::varint_size(((1) << 3) | 0) + litepb::ProtoWriter::varint_size(1);
         }
         
         // Unknown fields size
@@ -688,9 +696,7 @@ public:
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -698,10 +704,10 @@ public:
     inline static bool parse(::google::protobuf::BytesValue& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // value
@@ -741,7 +747,8 @@ public:
         
         // Field 1: type_url (string)
         if (!value.type_url.empty()) {
-            if (!writer.write_string(1, value.type_url)) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_LENGTH_DELIMITED)) return false;
+            if (!writer.write_string(value.type_url)) return false;
         }
         
         // Field 2: value (bytes)
@@ -750,9 +757,7 @@ public:
         }
         
         // Write unknown fields
-        for (const auto& field : value.unknown_fields) {
-            if (!writer.write_unknown_field(field)) return false;
-        }
+        if (!value.unknown_fields.serialize_to(stream)) return false;
         
         return true;
     }
@@ -760,10 +765,10 @@ public:
     inline static bool parse(::google::protobuf::Any& value, litepb::InputStream& stream) {
         litepb::ProtoReader reader(stream);
         
-        while (!reader.at_end()) {
-            uint32_t field_number;
-            litepb::WireType wire_type;
-            if (!reader.read_tag(field_number, wire_type)) return false;
+        uint32_t field_number;
+        litepb::WireType wire_type;
+        
+        while (reader.read_tag(field_number, wire_type)) {
             
             switch (field_number) {
                 case 1: // type_url

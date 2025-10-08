@@ -234,8 +234,12 @@ void test_forward_compatibility() {
     TEST_ASSERT_EQUAL(3, msg2.unknown_fields.fields().size());
 }
 
-void runTests() {
+int runTests() {
+    UNITY_BEGIN();
+    
     RUN_TEST(test_round_trip_with_unknown_fields);
     RUN_TEST(test_parse_only_unknown_fields);
     RUN_TEST(test_forward_compatibility);
+    
+    return UNITY_END();
 }

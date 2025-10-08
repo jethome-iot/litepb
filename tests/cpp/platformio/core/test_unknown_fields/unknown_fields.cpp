@@ -334,7 +334,9 @@ void test_unknown_large_field_numbers() {
 }
 
 // Register tests for Unity framework
-void runTests() {
+int runTests() {
+    UNITY_BEGIN();
+    
     // Basic field type tests
     RUN_TEST(test_unknown_varint_field);
     RUN_TEST(test_unknown_fixed32_field);
@@ -353,4 +355,6 @@ void runTests() {
     RUN_TEST(test_empty_unknown_fields);
     RUN_TEST(test_unknown_fields_clear);
     RUN_TEST(test_unknown_large_field_numbers);
+    
+    return UNITY_END();
 }
