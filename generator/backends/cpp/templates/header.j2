@@ -54,8 +54,10 @@ struct {{ message.name }};
 // Serializer specializations
 namespace litepb {
 
-{% for message in messages %}
-{{ generate_serializer_spec(message, namespace_prefix, true) }}
-{% endfor %}
+// Forward declarations of all Serializer specializations
+{{ serializer_forward_declarations }}
+
+// Serializer implementations
+{{ serializers_code }}
 
 }  // namespace litepb

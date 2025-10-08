@@ -3,7 +3,7 @@
 Serialization and deserialization code generation for C++.
 """
 
-from typing import List
+from typing import List, Dict
 from google.protobuf import descriptor_pb2 as pb2
 from .type_mapper import TypeMapper
 from .field_utils import FieldUtils
@@ -31,36 +31,92 @@ class SerializationCodegen:
         deps = {name: set() for name in all_msgs}
         
         for full_name, (msg, prefix) in all_msgs.items():
+            # First, add dependencies for nested types - parent depends on its nested types
+            # This ensures nested types are generated before their parent
+            for nested_msg in msg.nested_type:
+                if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                    nested_full_name = f'{full_name}::{nested_msg.name}'
+                    if nested_full_name in all_msgs:
+                        deps[full_name].add(nested_full_name)
+            
+            # Then check all fields including those in nested types and map fields
             for field in msg.field:
                 if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
-                    # Get the short type name from the type_name (e.g., ".package.Outer.Level2" -> "Level2")
-                    type_parts = field.type_name.split('.')
-                    short_name = type_parts[-1]
+                    # Get the type name
+                    type_name = field.type_name
+                    # Remove leading dot if present
+                    if type_name.startswith('.'):
+                        type_name = type_name[1:]
                     
-                    # Find this type in our nested messages
-                    for other_name in all_msgs:
-                        if other_name.endswith(f'::{short_name}'):
-                            deps[full_name].add(other_name)
-                            break
+                    # Handle different name formats
+                    dep_name = self._find_message_in_all_msgs(type_name, all_msgs, full_name)
+                    if dep_name and dep_name != full_name:  # Don't add self-dependencies
+                        deps[full_name].add(dep_name)
         
         return deps
+    
+    def _find_message_in_all_msgs(self, type_name: str, all_msgs: dict, current_msg: str) -> str:
+        """Find a message type name in all_msgs dict, handling nested types."""
+        # Remove leading dot if present
+        if type_name.startswith('.'):
+            type_name = type_name[1:]
+        
+        # If it has a package prefix, remove it for matching
+        if self.current_proto.package and type_name.startswith(self.current_proto.package + '.'):
+            type_name = type_name[len(self.current_proto.package) + 1:]
+        
+        # Convert proto path to C++ namespace format
+        cpp_type = type_name.replace('.', '::')
+        
+        # Try to find exact match first
+        for msg_name in all_msgs:
+            if msg_name == cpp_type:
+                return msg_name
+            # Check if it ends with this type (for namespace-prefixed types)
+            if msg_name.endswith('::' + cpp_type):
+                return msg_name
+        
+        # If type is just a simple name, look for it in nested types of current message
+        if '.' not in type_name and '::' not in type_name:
+            # Check if it's a sibling type in the same parent
+            if '::' in current_msg:
+                parent = current_msg.rsplit('::', 1)[0]
+                sibling = f'{parent}::{type_name}'
+                if sibling in all_msgs:
+                    return sibling
+            
+            # Check with namespace prefix
+            if self.current_proto.package:
+                ns_prefix = self.current_proto.package.replace('.', '::')
+                prefixed = f'{ns_prefix}::{type_name}'
+                if prefixed in all_msgs:
+                    return prefixed
+        
+        return None
     
     def _topological_sort(self, deps: dict, all_msgs: dict) -> List[tuple]:
         """Topological sort to generate messages in dependency order (dependencies first)."""
         result = []
         visited = set()
+        visiting = set()  # For cycle detection
         
         def visit(node):
             if node in visited:
                 return
-            visited.add(node)
-            # Visit dependencies first
+            if node in visiting:
+                # Cycle detected, but we'll continue anyway
+                return
+            visiting.add(node)
+            # Visit dependencies first - these are the types this message depends on
             for dep in deps.get(node, []):
-                visit(dep)
+                if dep in all_msgs:  # Only visit if it's in our set of messages
+                    visit(dep)
+            visiting.remove(node)
+            visited.add(node)
             # Then add this node
             result.append(all_msgs[node])
         
-        for node in deps:
+        for node in sorted(deps.keys()):  # Sort for consistent ordering
             visit(node)
         
         return result
@@ -75,21 +131,98 @@ class SerializationCodegen:
                 # Then recursively collect its children
                 self._collect_nested_messages_reverse(nested_msg, nested_prefix, result)
     
+    def generate_all_serializer_forward_declarations(self, messages: List[pb2.DescriptorProto], ns_prefix: str) -> str:
+        """Generate forward declarations for all serializers."""
+        lines = []
+        
+        # Collect all messages including nested ones
+        all_msgs = []
+        for message in messages:
+            self._collect_messages_for_forward_decl(message, ns_prefix, all_msgs)
+        
+        # Generate forward declarations
+        for msg_type, msg in all_msgs:
+            # Skip map entry types - they don't need serializers
+            if msg.HasField('options') and msg.options.map_entry:
+                continue
+            lines.append(f'template<> struct Serializer<{msg_type}>;')
+        
+        return '\n'.join(lines)
+    
+    def _collect_messages_for_forward_decl(self, message: pb2.DescriptorProto, ns_prefix: str, result: List[tuple]) -> None:
+        """Recursively collect all messages for forward declarations."""
+        msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        result.append((msg_type, message))
+        
+        for nested_msg in message.nested_type:
+            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+                self._collect_messages_for_forward_decl(nested_msg, nested_prefix, result)
+    
+    def generate_all_serializers(self, messages: List[pb2.DescriptorProto], ns_prefix: str, inline: bool) -> str:
+        """Generate all serializers for a list of messages in proper dependency order."""
+        lines = []
+        
+        # Collect all messages including nested ones with depth-first ordering
+        # This ensures nested types are collected before their parents
+        all_msgs_list = []
+        for message in messages:
+            self._collect_messages_depth_first(message, ns_prefix, all_msgs_list)
+        
+        # Convert to dict for dependency graph building
+        all_msgs = {full_name: (msg, prefix) for full_name, msg, prefix in all_msgs_list}
+        
+        # Build dependency graph for ALL messages
+        deps = self._build_dependency_graph(all_msgs)
+        
+        # Sort in topological order (dependencies first)
+        sorted_msgs = self._topological_sort(deps, all_msgs)
+        
+        # Generate serializers in dependency order
+        for msg, prefix in sorted_msgs:
+            # Skip map entry types - they don't need serializers
+            if msg.HasField('options') and msg.options.map_entry:
+                continue
+            lines.append(self._generate_single_serializer(msg, prefix, inline))
+            lines.append('')
+        
+        return '\n'.join(lines)
+    
+    def _collect_messages_depth_first(self, message: pb2.DescriptorProto, ns_prefix: str, result: List[tuple]) -> None:
+        """Collect messages depth-first, ensuring nested types come before parents."""
+        # First, recursively collect all nested messages
+        for nested_msg in message.nested_type:
+            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+                self._collect_messages_depth_first(nested_msg, nested_prefix, result)
+        
+        # Then add the parent message
+        full_name = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        result.append((full_name, message, ns_prefix))
+
     def generate_serializer_spec(self, message: pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
         """Generate serializer specialization for a message and its nested messages."""
         lines = []
         
-        # Collect nested messages in reverse order (dependencies likely come later)
-        nested_messages = []
-        self._collect_nested_messages_reverse(message, ns_prefix, nested_messages)
+        # Collect all messages with their fully qualified names
+        all_msgs = {}
+        full_name = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        all_msgs[full_name] = (message, ns_prefix)
+        self._collect_all_nested(message, ns_prefix, all_msgs)
         
-        # Generate serializers for nested messages (reverse order puts dependencies first)
-        for nested_msg, nested_prefix in nested_messages:
-            lines.append(self._generate_single_serializer(nested_msg, nested_prefix, inline))
+        # Build dependency graph  
+        deps = self._build_dependency_graph(all_msgs)
+        
+        # Sort in topological order (dependencies first)
+        sorted_msgs = self._topological_sort(deps, all_msgs)
+        
+        # Generate serializers in dependency order
+        for msg, prefix in sorted_msgs:
+            # Skip map entry types - they don't need serializers
+            if msg.HasField('options') and msg.options.map_entry:
+                continue
+            lines.append(self._generate_single_serializer(msg, prefix, inline))
             lines.append('')
-        
-        # Finally generate serializer for the parent message
-        lines.append(self._generate_single_serializer(message, ns_prefix, inline))
         
         return '\n'.join(lines)
     
@@ -359,7 +492,8 @@ class SerializationCodegen:
         lines.append(f'            // Write value')
         lines.append(f'            writer.write_tag(2, {val_wire});')
         if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
-            lines.append(f'            litepb::Serializer<std::decay_t<decltype(val)>>::serialize(val, stream);')
+            lines.append(f'            writer.write_varint(msg_stream.size());')
+            lines.append(f'            stream.write(msg_stream.data(), msg_stream.size());')
         elif map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
             lines.append(f'            writer.write_varint(static_cast<uint64_t>(val));')
         elif val_method == 'write_bytes':
@@ -451,8 +585,18 @@ class SerializationCodegen:
         elif use_optional:
             # Optional field
             if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
+                lines.append(f'                    // Read length-delimited message')
+                lines.append(f'                    uint64_t msg_length;')
+                lines.append(f'                    if (!reader.read_varint(msg_length)) return false;')
+                lines.append(f'                    ')
+                lines.append(f'                    // Read message bytes into buffer')
+                lines.append(f'                    std::vector<uint8_t> msg_buffer(msg_length);')
+                lines.append(f'                    if (!stream.read(msg_buffer.data(), msg_length)) return false;')
+                lines.append(f'                    ')
+                lines.append(f'                    // Create a stream from the buffer and parse')
                 lines.append(f'                    decltype(value.{field_name})::value_type temp;')
-                lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(temp)>>::parse(temp, stream)) return false;')
+                lines.append(f'                    litepb::BufferInputStream msg_stream(msg_buffer.data(), msg_buffer.size());')
+                lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(temp)>>::parse(temp, msg_stream)) return false;')
                 lines.append(f'                    value.{field_name} = std::move(temp);')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'                    uint64_t enum_val;')
@@ -463,7 +607,17 @@ class SerializationCodegen:
         else:
             # Required or singular
             if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
-                lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(value.{field_name})>>::parse(value.{field_name}, stream)) return false;')
+                lines.append(f'                    // Read length-delimited message')
+                lines.append(f'                    uint64_t msg_length;')
+                lines.append(f'                    if (!reader.read_varint(msg_length)) return false;')
+                lines.append(f'                    ')
+                lines.append(f'                    // Read message bytes into buffer')
+                lines.append(f'                    std::vector<uint8_t> msg_buffer(msg_length);')
+                lines.append(f'                    if (!stream.read(msg_buffer.data(), msg_length)) return false;')
+                lines.append(f'                    ')
+                lines.append(f'                    // Create a stream from the buffer and parse')
+                lines.append(f'                    litepb::BufferInputStream msg_stream(msg_buffer.data(), msg_buffer.size());')
+                lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(value.{field_name})>>::parse(value.{field_name}, msg_stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'                    uint64_t enum_val;')
                 lines.append(f'                    if (!reader.read_varint(enum_val)) return false;')
@@ -528,9 +682,19 @@ class SerializationCodegen:
         method = TypeMapper.get_deserialization_method(field_type)
         
         if field_type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
-            lines.append(f'                        decltype(value.{field_name})::value_type temp;')
-            lines.append(f'                        if (!litepb::Serializer<std::decay_t<decltype(temp)>>::parse(temp, stream)) return false;')
-            lines.append(f'                        value.{field_name}.push_back(std::move(temp));')
+            lines.append(f'                    // Read length-delimited message')
+            lines.append(f'                    uint64_t msg_length;')
+            lines.append(f'                    if (!reader.read_varint(msg_length)) return false;')
+            lines.append(f'                    ')
+            lines.append(f'                    // Read message bytes into buffer')
+            lines.append(f'                    std::vector<uint8_t> msg_buffer(msg_length);')
+            lines.append(f'                    if (!stream.read(msg_buffer.data(), msg_length)) return false;')
+            lines.append(f'                    ')
+            lines.append(f'                    // Create a stream from the buffer and parse')
+            lines.append(f'                    decltype(value.{field_name})::value_type temp;')
+            lines.append(f'                    litepb::BufferInputStream msg_stream(msg_buffer.data(), msg_buffer.size());')
+            lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(temp)>>::parse(temp, msg_stream)) return false;')
+            lines.append(f'                    value.{field_name}.push_back(std::move(temp));')
         elif field_type == pb2.FieldDescriptorProto.TYPE_ENUM:
             lines.append(f'                        uint64_t enum_val;')
             lines.append(f'                        if (!reader.read_varint(enum_val)) return false;')
@@ -629,7 +793,17 @@ class SerializationCodegen:
         
         # Read value
         if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
-            lines.append(f'                            if (!litepb::Serializer<{val_cpp_type}>::parse(entry_val, stream)) return false;')
+            lines.append(f'                            // Read length-delimited message')
+            lines.append(f'                            uint64_t msg_length;')
+            lines.append(f'                            if (!reader.read_varint(msg_length)) return false;')
+            lines.append(f'                            ')
+            lines.append(f'                            // Read message bytes into buffer')
+            lines.append(f'                            std::vector<uint8_t> msg_buffer(msg_length);')
+            lines.append(f'                            if (!stream.read(msg_buffer.data(), msg_length)) return false;')
+            lines.append(f'                            ')
+            lines.append(f'                            // Create a stream from the buffer and parse')
+            lines.append(f'                            litepb::BufferInputStream msg_stream(msg_buffer.data(), msg_buffer.size());')
+            lines.append(f'                            if (!litepb::Serializer<{val_cpp_type}>::parse(entry_val, msg_stream)) return false;')
         elif map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
             lines.append(f'                            uint64_t temp;')
             lines.append(f'                            if (!reader.read_varint(temp)) return false;')

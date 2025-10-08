@@ -65,9 +65,16 @@ class CppGenerator(LanguageGenerator):
         messages = list(file_proto.message_type)
         sorted_messages = CppUtils.topological_sort_messages(messages)
         
+        # Get namespace prefix before using it
+        namespace_prefix = CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else '')
+        
+        # Create serialization codegen instance for global serializer generation
+        serialization_codegen = SerializationCodegen(file_proto)
+        serializer_forward_declarations = serialization_codegen.generate_all_serializer_forward_declarations(sorted_messages, namespace_prefix)
+        serializers_code = serialization_codegen.generate_all_serializers(sorted_messages, namespace_prefix, True)
+        
         # Generate RPC services using the RPC generator
         services = list(file_proto.service)
-        namespace_prefix = CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else '')
         rpc_services_code = self.rpc_generator.generate_services(services, file_proto, namespace_prefix)
 
         # Prepare context
@@ -81,6 +88,8 @@ class CppGenerator(LanguageGenerator):
             'messages': sorted_messages,
             'services': services,
             'rpc_services_code': rpc_services_code,
+            'serializer_forward_declarations': serializer_forward_declarations,
+            'serializers_code': serializers_code,
         }
         
         return template.render(**context)
