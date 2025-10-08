@@ -8,6 +8,7 @@ Communication style: Simple, everyday language
 
 **Development Practices:**
 - Always set executable permissions (+x) for all scripts in `scripts/*.{sh,py}`
+- All bash scripts should include `set -e` at the top to exit immediately if any command fails, preventing cascading errors
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 - Use `#pragma once` at the top of all C++ header files instead of traditional include guards - this is simpler, less error-prone, and supported by all modern compilers
 
