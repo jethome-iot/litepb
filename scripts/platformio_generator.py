@@ -46,6 +46,7 @@ def _resolve_script_path():
 SCRIPT_PATH = _resolve_script_path()
 LITEPB_ROOT = SCRIPT_PATH.parents[1]
 LITEPB_SRC_PATH = LITEPB_ROOT / "cpp" / "src"
+LITEPB_GENERATOR_DIR = LITEPB_ROOT / "generator"
 
 GEN = LITEPB_ROOT / "./litepb_gen"
 if not GEN.exists():
@@ -184,6 +185,22 @@ else:
     # Ensure program build waits for codegen
     # (works across frameworks; adjust if you use a different final target)
     env.Depends("$BUILD_DIR/${PROGNAME}.elf", codegen)
+
+    # Ensure codegen is re-run if this script or any file in the generator dir changes
+    _excluded = {".venv", "__pycache__"}
+    extra_deps = (
+        str(SCRIPT_PATH.resolve()),
+        *(
+            str(p)
+            for p in LITEPB_GENERATOR_DIR.rglob("*")
+            if p.is_file() and not any(part in _excluded for part in p.parts)
+        )
+    )
+    print(f"[litepb] Extra dependencies: {len(extra_deps)} files:")
+    for d in extra_deps:
+       print("   -", d)
+    env.Depends(codegen, extra_deps)
+
 
     # Tell the compiler where to find generated sources
     env.Append(CPPPATH=[str(OUTDIR_DIR)])
