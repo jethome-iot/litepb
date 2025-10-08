@@ -35,6 +35,7 @@
 #include "litepb/core/proto_reader.h"
 #include "litepb/core/proto_writer.h"
 #include "litepb/core/streams.h"
+#include "litepb/core/unknown_fields.h"
 
 #include <optional>
 #include <string>

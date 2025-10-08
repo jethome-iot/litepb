@@ -164,6 +164,32 @@ public:
      * @return true if skip succeeded, false on error
      */
     bool skip_field(WireType type);
+    
+    /**
+     * @brief Skip a field and capture it as unknown field data
+     *
+     * Reads the field data and returns it for storage in an UnknownFieldSet.
+     * This is used when a field is not recognized but needs to be preserved
+     * for round-trip compatibility.
+     *
+     * @param type The wire type of the field to capture
+     * @param data Output vector to store the captured field data
+     * @return true if capture succeeded, false on error
+     */
+    bool capture_unknown_field(WireType type, std::vector<uint8_t>& data);
+
+    /**
+     * @brief Skip a field and save it directly to an UnknownFieldSet
+     *
+     * Convenience method that captures an unknown field and adds it directly
+     * to an UnknownFieldSet based on the field type.
+     *
+     * @param field_number The field number
+     * @param type The wire type of the field
+     * @param unknown_fields The UnknownFieldSet to add the field to
+     * @return true if skip and save succeeded, false on error
+     */
+    bool skip_and_save(uint32_t field_number, WireType type, class UnknownFieldSet& unknown_fields);
 
     /**
      * @brief Read a zigzag-encoded signed 32-bit integer

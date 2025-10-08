@@ -9,11 +9,12 @@ from typing import List
 from jinja2 import Environment, FileSystemLoader
 from google.protobuf import descriptor_pb2 as pb2
 
-from ..base import LanguageGenerator
-from .cpp_utils import CppUtils
-from .message_codegen import MessageCodegen
-from .serialization_codegen import SerializationCodegen
-from ...core.proto_parser import ProtoParser
+from generator.backends.base import LanguageGenerator
+from generator.backends.cpp.cpp_utils import CppUtils
+from generator.backends.cpp.message_codegen import MessageCodegen
+from generator.backends.cpp.serialization_codegen import SerializationCodegen
+from generator.backends.cpp.type_mapper import TypeMapper
+from generator.core.proto_parser import ProtoParser
 
 
 class CppGenerator(LanguageGenerator):
@@ -29,7 +30,7 @@ class CppGenerator(LanguageGenerator):
     def rpc_generator(self):
         """Lazy-load RPC generator only when services are detected."""
         if not hasattr(self, '_rpc_generator'):
-            from ...rpc.litepb.generator import LitePBRpcGenerator
+            from generator.rpc.litepb.generator import LitePBRpcGenerator
             self._rpc_generator = LitePBRpcGenerator()
         return self._rpc_generator
     
@@ -46,16 +47,54 @@ class CppGenerator(LanguageGenerator):
         self.env.globals['generate_serializer_spec'] = self.generate_serializer_spec
         self.env.globals['generate_serializer_impl'] = self.generate_serializer_impl
     
+    def _check_uses_well_known_types(self, file_proto: pb2.FileDescriptorProto) -> bool:
+        """Check if this proto file uses any well-known types."""
+        # Check dependencies for well-known type imports
+        for dep in file_proto.dependency:
+            if 'google/protobuf/' in dep and dep.endswith('.proto'):
+                # Check for specific well-known type imports
+                well_known_protos = [
+                    'empty.proto', 'timestamp.proto', 'duration.proto', 'any.proto',
+                    'wrappers.proto', 'struct.proto', 'field_mask.proto'
+                ]
+                if any(wkt in dep for wkt in well_known_protos):
+                    return True
+        
+        # Check all message fields for well-known types
+        def check_message_fields(message):
+            for field in message.field:
+                if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                    if TypeMapper.is_well_known_type(field.type_name):
+                        return True
+            # Check nested messages
+            for nested in message.nested_type:
+                if check_message_fields(nested):
+                    return True
+            return False
+        
+        for message in file_proto.message_type:
+            if check_message_fields(message):
+                return True
+        
+        return False
+    
     def generate_header(self, file_proto: pb2.FileDescriptorProto, filename: str) -> str:
         """Generate C++ header file content."""
         self.current_proto = file_proto  # Set context for type generation
         template = self.env.get_template('header.j2')
+        
+        # Check if this proto uses well-known types
+        uses_well_known_types = self._check_uses_well_known_types(file_proto)
         
         # Convert imports to include paths
         import_includes = []
         for dependency in file_proto.dependency:
             # Skip rpc_options.proto - it's only for compile-time extension field definitions
             if 'rpc_options.proto' in dependency:
+                continue
+            # Handle well-known type imports specially
+            if 'google/protobuf/' in dependency and dependency.endswith('.proto'):
+                # Well-known types are handled by our own headers
                 continue
             # Convert "path/to/file.proto" to "path/to/file.pb.h"
             include_path = dependency.replace('.proto', '.pb.h')
@@ -84,6 +123,7 @@ class CppGenerator(LanguageGenerator):
             'namespace_parts': CppUtils.get_namespace_parts(file_proto.package if file_proto.package else ''),
             'namespace_prefix': namespace_prefix,
             'imports': import_includes,
+            'uses_well_known_types': uses_well_known_types,
             'enums': list(file_proto.enum_type),
             'messages': sorted_messages,
             'services': services,

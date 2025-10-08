@@ -1,6 +1,11 @@
 #pragma once
 
 #include "litepb/litepb.h"
+#include "litepb/core/unknown_fields.h"
+{%- if uses_well_known_types %}
+#include "litepb/well_known_types.h"
+#include "litepb/well_known_types_serializers.h"
+{% endif %}
 #include <string>
 #include <vector>
 #include <cstdint>

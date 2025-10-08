@@ -261,6 +261,39 @@ class TypeMapper:
         # This could be changed to use pointers for large messages if needed
         return False
 
+    # Well-known types mapping
+    WELL_KNOWN_TYPES: Dict[str, str] = {
+        'google.protobuf.Empty': '::google::protobuf::Empty',
+        'google.protobuf.Timestamp': '::google::protobuf::Timestamp',
+        'google.protobuf.Duration': '::google::protobuf::Duration',
+        'google.protobuf.Any': '::google::protobuf::Any',
+        'google.protobuf.StringValue': '::google::protobuf::StringValue',
+        'google.protobuf.Int32Value': '::google::protobuf::Int32Value',
+        'google.protobuf.Int64Value': '::google::protobuf::Int64Value',
+        'google.protobuf.UInt32Value': '::google::protobuf::UInt32Value',
+        'google.protobuf.UInt64Value': '::google::protobuf::UInt64Value',
+        'google.protobuf.FloatValue': '::google::protobuf::FloatValue',
+        'google.protobuf.DoubleValue': '::google::protobuf::DoubleValue',
+        'google.protobuf.BoolValue': '::google::protobuf::BoolValue',
+        'google.protobuf.BytesValue': '::google::protobuf::BytesValue',
+    }
+    
+    @classmethod
+    def is_well_known_type(cls, type_name: str) -> bool:
+        """Check if a type name is a well-known type."""
+        # Remove leading dot if present
+        if type_name.startswith('.'):
+            type_name = type_name[1:]
+        return type_name in cls.WELL_KNOWN_TYPES
+    
+    @classmethod
+    def get_well_known_type_cpp_name(cls, type_name: str) -> str:
+        """Get the C++ name for a well-known type."""
+        # Remove leading dot if present
+        if type_name.startswith('.'):
+            type_name = type_name[1:]
+        return cls.WELL_KNOWN_TYPES.get(type_name, '')
+    
     @classmethod
     def qualify_type_name(cls, type_name: str, package: str = '', current_scope: str = '') -> str:
         """
@@ -280,6 +313,10 @@ class TypeMapper:
         # Remove leading dot if present (fully qualified name)
         if type_name.startswith('.'):
             type_name = type_name[1:]
+        
+        # Check if it's a well-known type
+        if type_name in cls.WELL_KNOWN_TYPES:
+            return cls.WELL_KNOWN_TYPES[type_name]
 
         # Convert dots to C++ namespace separators
         cpp_name = type_name.replace('.', '::')
