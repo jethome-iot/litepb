@@ -17,40 +17,78 @@ class SerializationCodegen:
         """Initialize with current proto context."""
         self.current_proto = current_proto
     
-    def _collect_nested_messages_dfs(self, message: pb2.DescriptorProto, ns_prefix: str, result: List[tuple]) -> None:
-        """Collect nested messages in DFS post-order (children before parents)."""
+    def _collect_all_nested(self, message: pb2.DescriptorProto, ns_prefix: str, result: dict) -> None:
+        """Recursively collect all nested messages into a dict."""
         for nested_msg in message.nested_type:
             if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
                 nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
-                # Recursively collect this nested message's children first
-                self._collect_nested_messages_dfs(nested_msg, nested_prefix, result)
-                # Then add this message
+                full_name = f'{nested_prefix}::{nested_msg.name}'
+                result[full_name] = (nested_msg, nested_prefix)
+                self._collect_all_nested(nested_msg, nested_prefix, result)
+    
+    def _build_dependency_graph(self, all_msgs: dict) -> dict:
+        """Build dependency graph: msg_name -> set of messages it depends on."""
+        deps = {name: set() for name in all_msgs}
+        
+        for full_name, (msg, prefix) in all_msgs.items():
+            for field in msg.field:
+                if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                    # Get the short type name from the type_name (e.g., ".package.Outer.Level2" -> "Level2")
+                    type_parts = field.type_name.split('.')
+                    short_name = type_parts[-1]
+                    
+                    # Find this type in our nested messages
+                    for other_name in all_msgs:
+                        if other_name.endswith(f'::{short_name}'):
+                            deps[full_name].add(other_name)
+                            break
+        
+        return deps
+    
+    def _topological_sort(self, deps: dict, all_msgs: dict) -> List[tuple]:
+        """Topological sort to generate messages in dependency order (dependencies first)."""
+        result = []
+        visited = set()
+        
+        def visit(node):
+            if node in visited:
+                return
+            visited.add(node)
+            # Visit dependencies first
+            for dep in deps.get(node, []):
+                visit(dep)
+            # Then add this node
+            result.append(all_msgs[node])
+        
+        for node in deps:
+            visit(node)
+        
+        return result
+    
+    def _collect_nested_messages_reverse(self, message: pb2.DescriptorProto, ns_prefix: str, result: List[tuple]) -> None:
+        """Collect nested messages in reverse declaration order (later siblings first)."""
+        for nested_msg in reversed(message.nested_type):
+            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+                # First add this message
                 result.append((nested_msg, nested_prefix))
+                # Then recursively collect its children
+                self._collect_nested_messages_reverse(nested_msg, nested_prefix, result)
     
     def generate_serializer_spec(self, message: pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
         """Generate serializer specialization for a message and its nested messages."""
         lines = []
         
-        # Collect all nested messages in DFS post-order (deepest first)
+        # Collect nested messages in reverse order (dependencies likely come later)
         nested_messages = []
-        self._collect_nested_messages_dfs(message, ns_prefix, nested_messages)
+        self._collect_nested_messages_reverse(message, ns_prefix, nested_messages)
         
-        # First, generate forward declarations for all messages (including parent) to avoid instantiation issues
-        for nested_msg, nested_prefix in nested_messages:
-            msg_type = f'{nested_prefix}::{nested_msg.name}'
-            lines.append(f'template<> struct Serializer<{msg_type}>;')
-        
-        # Forward declaration for the parent message
-        msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
-        lines.append(f'template<> struct Serializer<{msg_type}>;')
-        lines.append('')
-        
-        # Then generate serializers for all nested messages (deepest to shallowest)
+        # Generate serializers for nested messages (reverse order puts dependencies first)
         for nested_msg, nested_prefix in nested_messages:
             lines.append(self._generate_single_serializer(nested_msg, nested_prefix, inline))
             lines.append('')
         
-        # Finally generate serializer for this message
+        # Finally generate serializer for the parent message
         lines.append(self._generate_single_serializer(message, ns_prefix, inline))
         
         return '\n'.join(lines)

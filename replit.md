@@ -11,11 +11,12 @@ LitePB is a lightweight C++ Protocol Buffer serialization and RPC framework desi
   - `field_utils.py`: Field processing utilities and helper functions
   - `type_mapper.py`: Type conversion and mapping logic
   - `message_codegen.py`: Message and enum code generation
-  - `serialization_codegen.py`: Serialization/deserialization code generation
+  - `serialization_codegen.py`: Serialization/deserialization code generation with reverse-order nested type generation
   - `cpp_utils.py`: C++-specific utility functions
 - Adopted protobuf native enums (e.g., `pb2.FieldDescriptorProto.TYPE_MESSAGE`) instead of string conversions
 - Introduced import aliases (`from google.protobuf import descriptor_pb2 as pb2`) throughout codebase to avoid FQDN
-- All 170 tests pass, confirming no functionality regressions
+- Fixed C++ template specialization ordering errors for nested message types by generating in reverse declaration order
+- Test results: 155/166 PlatformIO tests passing, 38/38 example tests passing
 - Maintained extensibility for adding new language backends via `LanguageGenerator` abstract class
 
 ## User Preferences
