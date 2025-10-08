@@ -5,6 +5,15 @@
 #include "litepb/well_known_types.h"
 #include "litepb/well_known_types_serializers.h"
 
+// Unity framework requires these functions
+void setUp(void) {
+    // Called before each test
+}
+
+void tearDown(void) {
+    // Called after each test
+}
+
 void test_empty_serialization() {
     // Test Empty type serialization
     google::protobuf::Empty empty;

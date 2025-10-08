@@ -368,7 +368,7 @@ public:
                     {
                         uint64_t temp;
                         if (!reader.read_varint(temp)) return false;
-                        value.value = static_cast<int32_t>(temp);
+                        value.value = static_cast<int64_t>(temp);
                     }
                     break;
                     
@@ -425,7 +425,7 @@ public:
             switch (field_number) {
                 case 1: // value
                     if (wire_type != litepb::WIRE_TYPE_VARINT) return false;
-                    uuint64_t value_64;
+                    uint64_t value_64;
                     if (!reader.read_varint(value_64)) return false;
                     value.value = static_cast<uint32_t>(value_64);
                     break;
@@ -486,7 +486,7 @@ public:
                     {
                         uint64_t temp;
                         if (!reader.read_varint(temp)) return false;
-                        value.value = static_cast<int32_t>(temp);
+                        value.value = static_cast<uint64_t>(temp);
                     }
                     break;
                     
@@ -692,7 +692,8 @@ public:
         
         // Field 1: value (bytes)
         if (!value.value.empty()) {
-            if (!writer.write_bytes(1, value.value)) return false;
+            if (!writer.write_tag(1, litepb::WIRE_TYPE_LENGTH_DELIMITED)) return false;
+            if (!writer.write_bytes(value.value.data(), value.value.size())) return false;
         }
         
         // Write unknown fields
@@ -753,7 +754,8 @@ public:
         
         // Field 2: value (bytes)
         if (!value.value.empty()) {
-            if (!writer.write_bytes(2, value.value)) return false;
+            if (!writer.write_tag(2, litepb::WIRE_TYPE_LENGTH_DELIMITED)) return false;
+            if (!writer.write_bytes(value.value.data(), value.value.size())) return false;
         }
         
         // Write unknown fields
