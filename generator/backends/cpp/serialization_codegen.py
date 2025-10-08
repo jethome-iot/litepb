@@ -137,10 +137,13 @@ class SerializationCodegen:
                 wire_type = TypeMapper.get_wire_type(field.type)
                 lines.append(f'            writer.write_tag({field_num}, {wire_type});')
                 
-                if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+                if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
                     lines.append(f'            if (!litepb::Serializer<decltype(item)>::serialize(item, stream)) return false;')
                 elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                     lines.append(f'            writer.write_varint(static_cast<uint64_t>(item));')
+                elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
+                    method = TypeMapper.get_serialization_method(field.type)
+                    lines.append(f'            writer.{method}(item.data(), item.size());')
                 else:
                     method = TypeMapper.get_serialization_method(field.type)
                     lines.append(f'            writer.{method}(item);')
@@ -157,10 +160,13 @@ class SerializationCodegen:
             wire_type = TypeMapper.get_wire_type(field.type)
             lines.append(f'            writer.write_tag({field_num}, {wire_type});')
             
-            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
                 lines.append(f'            if (!litepb::Serializer<decltype(value.{field_name}.value())>::serialize(value.{field_name}.value(), stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'            writer.write_varint(static_cast<uint64_t>(value.{field_name}.value()));')
+            elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
+                method = TypeMapper.get_serialization_method(field.type)
+                lines.append(f'            writer.{method}(value.{field_name}.value().data(), value.{field_name}.value().size());')
             else:
                 method = TypeMapper.get_serialization_method(field.type)
                 lines.append(f'            writer.{method}(value.{field_name}.value());')
@@ -180,10 +186,13 @@ class SerializationCodegen:
             wire_type = TypeMapper.get_wire_type(field.type)
             lines.append(f'            writer.write_tag({field_num}, {wire_type});')
             
-            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
                 lines.append(f'            if (!litepb::Serializer<decltype(value.{field_name})>::serialize(value.{field_name}, stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'            writer.write_varint(static_cast<uint64_t>(value.{field_name}));')
+            elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
+                method = TypeMapper.get_serialization_method(field.type)
+                lines.append(f'            writer.{method}(value.{field_name}.data(), value.{field_name}.size());')
             else:
                 method = TypeMapper.get_serialization_method(field.type)
                 lines.append(f'            writer.{method}(value.{field_name});')
@@ -218,9 +227,9 @@ class SerializationCodegen:
         # Key size
         key_wire = TypeMapper.get_wire_type(map_field.key_field.type)
         key_method = TypeMapper.get_serialization_method(map_field.key_field.type)
-        lines.append(f'            entry_size += litepb::ProtoWriter::tag_size(1);')
+        lines.append(f'            entry_size += litepb::ProtoWriter::varint_size((1 << 3) | {key_wire});')
         if key_method == 'write_string':
-            lines.append(f'            entry_size += litepb::ProtoWriter::string_size(key);')
+            lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(key.size()) + key.size();')
         elif key_method == 'write_varint':
             lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(static_cast<uint64_t>(key));')
         elif key_method in ('write_fixed32', 'write_sfixed32'):
@@ -231,14 +240,14 @@ class SerializationCodegen:
         # Value size
         val_wire = TypeMapper.get_wire_type(map_field.value_field.type)
         val_method = TypeMapper.get_serialization_method(map_field.value_field.type)
-        lines.append(f'            entry_size += litepb::ProtoWriter::tag_size(2);')
+        lines.append(f'            entry_size += litepb::ProtoWriter::varint_size((2 << 3) | {val_wire});')
         if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
             lines.append(f'            // Message value size calculated during write')
-            lines.append(f'            litepb::MemoryOutputStream msg_stream;')
+            lines.append(f'            litepb::BufferOutputStream msg_stream;')
             lines.append(f'            litepb::Serializer<decltype(val)>::serialize(val, msg_stream);')
             lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(msg_stream.size()) + msg_stream.size();')
         elif val_method == 'write_string':
-            lines.append(f'            entry_size += litepb::ProtoWriter::string_size(val);')
+            lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(val.size()) + val.size();')
         elif val_method == 'write_varint':
             lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(static_cast<uint64_t>(val));')
         elif val_method in ('write_fixed32', 'write_sfixed32'):
@@ -283,10 +292,16 @@ class SerializationCodegen:
             
             lines.append(f'                    writer.write_tag({field_num}, {wire_type});')
             
-            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
                 lines.append(f'                    litepb::Serializer<T>::serialize(oneof_val, stream);')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'                    writer.write_varint(static_cast<uint64_t>(oneof_val));')
+            elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
+                method = TypeMapper.get_serialization_method(field.type)
+                lines.append(f'                    writer.{method}(oneof_val.data(), oneof_val.size());')
+            elif field.type == pb2.FieldDescriptorProto.TYPE_STRING:
+                method = TypeMapper.get_serialization_method(field.type)
+                lines.append(f'                    writer.{method}(oneof_val);')
             else:
                 method = TypeMapper.get_serialization_method(field.type)
                 lines.append(f'                    writer.{method}(oneof_val);')
