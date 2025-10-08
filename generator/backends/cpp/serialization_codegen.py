@@ -17,18 +17,47 @@ class SerializationCodegen:
         """Initialize with current proto context."""
         self.current_proto = current_proto
     
+    def _collect_nested_messages_dfs(self, message: pb2.DescriptorProto, ns_prefix: str, result: List[tuple]) -> None:
+        """Collect nested messages in DFS post-order (children before parents)."""
+        for nested_msg in message.nested_type:
+            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
+                nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+                # Recursively collect this nested message's children first
+                self._collect_nested_messages_dfs(nested_msg, nested_prefix, result)
+                # Then add this message
+                result.append((nested_msg, nested_prefix))
+    
     def generate_serializer_spec(self, message: pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
         """Generate serializer specialization for a message and its nested messages."""
         lines = []
         
-        # First, recursively generate serializers for nested messages (but not map entries)
-        for nested_msg in message.nested_type:
-            if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
-                nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
-                lines.append(self.generate_serializer_spec(nested_msg, nested_prefix, inline))
-                lines.append('')
+        # Collect all nested messages in DFS post-order (deepest first)
+        nested_messages = []
+        self._collect_nested_messages_dfs(message, ns_prefix, nested_messages)
         
-        # Then generate serializer for this message
+        # First, generate forward declarations for all messages (including parent) to avoid instantiation issues
+        for nested_msg, nested_prefix in nested_messages:
+            msg_type = f'{nested_prefix}::{nested_msg.name}'
+            lines.append(f'template<> struct Serializer<{msg_type}>;')
+        
+        # Forward declaration for the parent message
+        msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        lines.append(f'template<> struct Serializer<{msg_type}>;')
+        lines.append('')
+        
+        # Then generate serializers for all nested messages (deepest to shallowest)
+        for nested_msg, nested_prefix in nested_messages:
+            lines.append(self._generate_single_serializer(nested_msg, nested_prefix, inline))
+            lines.append('')
+        
+        # Finally generate serializer for this message
+        lines.append(self._generate_single_serializer(message, ns_prefix, inline))
+        
+        return '\n'.join(lines)
+    
+    def _generate_single_serializer(self, message: pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
+        """Generate a single serializer specialization without recursion."""
+        lines = []
         msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
         inline_str = 'inline ' if inline else ''
         
@@ -138,7 +167,7 @@ class SerializationCodegen:
                 lines.append(f'            writer.write_tag({field_num}, {wire_type});')
                 
                 if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
-                    lines.append(f'            if (!litepb::Serializer<decltype(item)>::serialize(item, stream)) return false;')
+                    lines.append(f'            if (!litepb::Serializer<std::decay_t<decltype(item)>>::serialize(item, stream)) return false;')
                 elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                     lines.append(f'            writer.write_varint(static_cast<uint64_t>(item));')
                 elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
@@ -161,7 +190,7 @@ class SerializationCodegen:
             lines.append(f'            writer.write_tag({field_num}, {wire_type});')
             
             if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
-                lines.append(f'            if (!litepb::Serializer<decltype(value.{field_name}.value())>::serialize(value.{field_name}.value(), stream)) return false;')
+                lines.append(f'            if (!litepb::Serializer<std::decay_t<decltype(value.{field_name}.value())>>::serialize(value.{field_name}.value(), stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'            writer.write_varint(static_cast<uint64_t>(value.{field_name}.value()));')
             elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
@@ -187,7 +216,7 @@ class SerializationCodegen:
             lines.append(f'            writer.write_tag({field_num}, {wire_type});')
             
             if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
-                lines.append(f'            if (!litepb::Serializer<decltype(value.{field_name})>::serialize(value.{field_name}, stream)) return false;')
+                lines.append(f'            if (!litepb::Serializer<std::decay_t<decltype(value.{field_name})>>::serialize(value.{field_name}, stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'            writer.write_varint(static_cast<uint64_t>(value.{field_name}));')
             elif field.type == pb2.FieldDescriptorProto.TYPE_BYTES:
@@ -244,7 +273,7 @@ class SerializationCodegen:
         if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
             lines.append(f'            // Message value size calculated during write')
             lines.append(f'            litepb::BufferOutputStream msg_stream;')
-            lines.append(f'            litepb::Serializer<decltype(val)>::serialize(val, msg_stream);')
+            lines.append(f'            litepb::Serializer<std::decay_t<decltype(val)>>::serialize(val, msg_stream);')
             lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(msg_stream.size()) + msg_stream.size();')
         elif val_method == 'write_string':
             lines.append(f'            entry_size += litepb::ProtoWriter::varint_size(val.size()) + val.size();')
@@ -265,11 +294,15 @@ class SerializationCodegen:
         lines.append(f'            // Write value')
         lines.append(f'            writer.write_tag(2, {val_wire});')
         if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
-            lines.append(f'            litepb::Serializer<decltype(val)>::serialize(val, stream);')
+            lines.append(f'            litepb::Serializer<std::decay_t<decltype(val)>>::serialize(val, stream);')
         elif map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
             lines.append(f'            writer.write_varint(static_cast<uint64_t>(val));')
+        elif val_method == 'write_bytes':
+            lines.append(f'            writer.{val_method}(val.data(), val.size());')
+        elif val_method == 'write_varint':
+            lines.append(f'            writer.{val_method}(static_cast<uint64_t>(val));')
         else:
-            lines.append(f'            writer.{val_method}({"static_cast<uint64_t>(val)" if val_method == "write_varint" else "val"});')
+            lines.append(f'            writer.{val_method}(val);')
         lines.append(f'        }}')
         
         return '\n'.join(lines)
@@ -352,9 +385,9 @@ class SerializationCodegen:
                 self._generate_unpacked_read_code(lines, field.type, field_name)
         elif use_optional:
             # Optional field
-            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
                 lines.append(f'                    decltype(value.{field_name})::value_type temp;')
-                lines.append(f'                    if (!litepb::Serializer<decltype(temp)>::parse(temp, stream)) return false;')
+                lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(temp)>>::parse(temp, stream)) return false;')
                 lines.append(f'                    value.{field_name} = std::move(temp);')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'                    uint64_t enum_val;')
@@ -364,8 +397,8 @@ class SerializationCodegen:
                 self._generate_simple_read_to_optional(lines, field.type, field_name)
         else:
             # Required or singular
-            if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
-                lines.append(f'                    if (!litepb::Serializer<decltype(value.{field_name})>::parse(value.{field_name}, stream)) return false;')
+            if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
+                lines.append(f'                    if (!litepb::Serializer<std::decay_t<decltype(value.{field_name})>>::parse(value.{field_name}, stream)) return false;')
             elif field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
                 lines.append(f'                    uint64_t enum_val;')
                 lines.append(f'                    if (!reader.read_varint(enum_val)) return false;')
@@ -429,9 +462,9 @@ class SerializationCodegen:
         cpp_type = TypeMapper.get_cpp_type(field_type)
         method = TypeMapper.get_deserialization_method(field_type)
         
-        if field_type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+        if field_type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
             lines.append(f'                        decltype(value.{field_name})::value_type temp;')
-            lines.append(f'                        if (!litepb::Serializer<decltype(temp)>::parse(temp, stream)) return false;')
+            lines.append(f'                        if (!litepb::Serializer<std::decay_t<decltype(temp)>>::parse(temp, stream)) return false;')
             lines.append(f'                        value.{field_name}.push_back(std::move(temp));')
         elif field_type == pb2.FieldDescriptorProto.TYPE_ENUM:
             lines.append(f'                        uint64_t enum_val;')
@@ -512,7 +545,12 @@ class SerializationCodegen:
         
         # Read key
         key_method = TypeMapper.get_deserialization_method(map_field.key_field.type)
-        if key_method == 'read_varint':
+        if map_field.key_field.type in (pb2.FieldDescriptorProto.TYPE_SFIXED32, pb2.FieldDescriptorProto.TYPE_SFIXED64):
+            unsigned_type = 'uint32_t' if map_field.key_field.type == pb2.FieldDescriptorProto.TYPE_SFIXED32 else 'uint64_t'
+            lines.append(f'                            {unsigned_type} temp_unsigned;')
+            lines.append(f'                            if (!reader.{key_method}(temp_unsigned)) return false;')
+            lines.append(f'                            std::memcpy(&entry_key, &temp_unsigned, sizeof(entry_key));')
+        elif key_method == 'read_varint':
             lines.append(f'                            uint64_t temp;')
             lines.append(f'                            if (!reader.{key_method}(temp)) return false;')
             if map_field.key_field.type == pb2.FieldDescriptorProto.TYPE_BOOL:
@@ -533,7 +571,12 @@ class SerializationCodegen:
             lines.append(f'                            entry_val = static_cast<{val_cpp_type}>(temp);')
         else:
             val_method = TypeMapper.get_deserialization_method(map_field.value_field.type)
-            if val_method == 'read_varint':
+            if map_field.value_field.type in (pb2.FieldDescriptorProto.TYPE_SFIXED32, pb2.FieldDescriptorProto.TYPE_SFIXED64):
+                unsigned_type = 'uint32_t' if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_SFIXED32 else 'uint64_t'
+                lines.append(f'                            {unsigned_type} temp_unsigned;')
+                lines.append(f'                            if (!reader.{val_method}(temp_unsigned)) return false;')
+                lines.append(f'                            std::memcpy(&entry_val, &temp_unsigned, sizeof(entry_val));')
+            elif val_method == 'read_varint':
                 lines.append(f'                            uint64_t temp;')
                 lines.append(f'                            if (!reader.{val_method}(temp)) return false;')
                 if map_field.value_field.type == pb2.FieldDescriptorProto.TYPE_BOOL:
@@ -564,7 +607,7 @@ class SerializationCodegen:
         
         cpp_type = self._get_oneof_field_cpp_type(field)
         
-        if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
+        if field.type in (pb2.FieldDescriptorProto.TYPE_MESSAGE, pb2.FieldDescriptorProto.TYPE_GROUP):
             lines.append(f'                    {cpp_type} oneof_val;')
             lines.append(f'                    if (!litepb::Serializer<{cpp_type}>::parse(oneof_val, stream)) return false;')
             lines.append(f'                    value.{oneof_name} = std::move(oneof_val);')
