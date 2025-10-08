@@ -1,6 +1,10 @@
 #!/bin/bash
-
+######################################################################
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+######################################################################
+
 
 CURRENT_BRANCH=$(git branch --show-current)
 BACKUP_BRANCH="backup-history-$(date +%Y%m%d-%H%M%S)"

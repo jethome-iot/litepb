@@ -1,6 +1,9 @@
 #!/bin/bash
-
+######################################################################
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+######################################################################
 
 # Change to project root directory (parent of scripts/)
 cd "$(dirname "$0")/.." || exit 1
