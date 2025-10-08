@@ -24,7 +24,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from google.protobuf import descriptor_pb2
+from google.protobuf import descriptor_pb2 as pb2
 
 
 class LanguageGenerator(ABC):
@@ -38,7 +38,7 @@ class LanguageGenerator(ABC):
     """
     
     @abstractmethod
-    def generate_header(self, file_proto: descriptor_pb2.FileDescriptorProto, filename: str) -> str:
+    def generate_header(self, file_proto: pb2.FileDescriptorProto, filename: str) -> str:
         """
         Generate header/interface file content for the given proto file.
         
@@ -59,7 +59,7 @@ class LanguageGenerator(ABC):
         pass
     
     @abstractmethod
-    def generate_implementation(self, file_proto: descriptor_pb2.FileDescriptorProto, filename: str) -> str:
+    def generate_implementation(self, file_proto: pb2.FileDescriptorProto, filename: str) -> str:
         """
         Generate implementation file content for the given proto file.
         

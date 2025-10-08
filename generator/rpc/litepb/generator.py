@@ -7,7 +7,8 @@ Generates RPC service stubs (client, server, and registration helpers) from prot
 import os
 from typing import List
 from jinja2 import Environment, FileSystemLoader
-from google.protobuf import descriptor_pb2
+from google.protobuf import descriptor_pb2 as pb2
+
 from ..base import RpcGenerator
 from ...core.proto_parser import ProtoParser
 
@@ -27,8 +28,8 @@ class LitePBRpcGenerator(RpcGenerator):
     
     def generate_services(
         self, 
-        services: List[descriptor_pb2.ServiceDescriptorProto], 
-        file_proto: descriptor_pb2.FileDescriptorProto,
+        services: List[pb2.ServiceDescriptorProto], 
+        file_proto: pb2.FileDescriptorProto,
         namespace_prefix: str
     ) -> str:
         """Generate all RPC services."""
@@ -42,7 +43,7 @@ class LitePBRpcGenerator(RpcGenerator):
         
         return '\n'.join(lines)
     
-    def generate_rpc_service(self, service: descriptor_pb2.ServiceDescriptorProto, namespace_prefix: str) -> str:
+    def generate_rpc_service(self, service: pb2.ServiceDescriptorProto, namespace_prefix: str) -> str:
         """Generate RPC service stubs (client, server interface, and registration function)."""
         lines = []
         service_name = service.name

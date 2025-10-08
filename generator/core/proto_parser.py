@@ -7,8 +7,9 @@ Parses .proto files and extracts descriptors for code generation.
 import os
 import subprocess
 import tempfile
-from google.protobuf import descriptor_pb2
 from typing import List, Dict, Optional
+from google.protobuf import descriptor_pb2 as pb2
+
 from .rpc_options import RpcMethodOptions, RpcServiceOptions, MethodOptions, ServiceOptions
 
 
@@ -19,7 +20,7 @@ class ProtoParser:
         """Initialize parser with optional import paths."""
         self.import_paths = import_paths or []
     
-    def parse_proto_file(self, proto_path: str) -> descriptor_pb2.FileDescriptorProto:
+    def parse_proto_file(self, proto_path: str) -> pb2.FileDescriptorProto:
         """
         Parse a .proto file and return FileDescriptorProto.
         
@@ -33,7 +34,7 @@ class ProtoParser:
         descriptor_set = self._run_protoc(proto_path)
         
         # Parse the descriptor set
-        file_descriptor_set = descriptor_pb2.FileDescriptorSet()
+        file_descriptor_set = pb2.FileDescriptorSet()
         file_descriptor_set.ParseFromString(descriptor_set)
         
         # Return the main file (last one in the set)
@@ -41,7 +42,7 @@ class ProtoParser:
             return file_descriptor_set.file[-1]
         
         # Return empty FileDescriptorProto if no files found
-        return descriptor_pb2.FileDescriptorProto()
+        return pb2.FileDescriptorProto()
     
     def _run_protoc(self, proto_path: str) -> bytes:
         """Run protoc compiler to generate descriptor set."""
@@ -124,7 +125,7 @@ class ProtoParser:
         
         return result, pos
     
-    def extract_method_options(self, method_proto: descriptor_pb2.MethodDescriptorProto) -> RpcMethodOptions:
+    def extract_method_options(self, method_proto: pb2.MethodDescriptorProto) -> RpcMethodOptions:
         """Extract RPC method options from method descriptor."""
         if not method_proto.HasField('options'):
             return RpcMethodOptions()
@@ -142,7 +143,7 @@ class ProtoParser:
             fire_and_forget=fire_and_forget
         )
     
-    def extract_service_options(self, service_proto: descriptor_pb2.ServiceDescriptorProto) -> RpcServiceOptions:
+    def extract_service_options(self, service_proto: pb2.ServiceDescriptorProto) -> RpcServiceOptions:
         """Extract RPC service options from service descriptor."""
         if not service_proto.HasField('options'):
             return RpcServiceOptions()

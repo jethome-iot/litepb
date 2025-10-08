@@ -21,7 +21,7 @@ Example:
 
 from abc import ABC, abstractmethod
 from typing import List
-from google.protobuf import descriptor_pb2
+from google.protobuf import descriptor_pb2 as pb2
 
 
 class RpcGenerator(ABC):
@@ -37,8 +37,8 @@ class RpcGenerator(ABC):
     @abstractmethod
     def generate_services(
         self, 
-        services: List[descriptor_pb2.ServiceDescriptorProto], 
-        file_proto: descriptor_pb2.FileDescriptorProto,
+        services: List[pb2.ServiceDescriptorProto], 
+        file_proto: pb2.FileDescriptorProto,
         namespace_prefix: str
     ) -> str:
         """
