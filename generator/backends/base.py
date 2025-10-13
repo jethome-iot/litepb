@@ -47,7 +47,7 @@ class LanguageGenerator(ABC):
         protobuf file descriptor.
         
         Args:
-            file_proto: The protobuf file descriptor containing messages, enums, and services
+            file_proto: The protobuf file descriptor containing messages and enums
             filename: The name of the proto file being processed (e.g., "person.proto")
         
         Returns:
@@ -68,7 +68,7 @@ class LanguageGenerator(ABC):
         protobuf file descriptor.
         
         Args:
-            file_proto: The protobuf file descriptor containing messages, enums, and services
+            file_proto: The protobuf file descriptor containing messages and enums
             filename: The name of the proto file being processed (e.g., "person.proto")
         
         Returns:
