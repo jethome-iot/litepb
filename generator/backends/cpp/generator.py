@@ -55,9 +55,8 @@ class CppGenerator(LanguageGenerator):
             # Skip rpc_options.proto - it's only for compile-time extension field definitions
             if 'rpc_options.proto' in dependency:
                 continue
-            # Handle well-known type imports specially
+            # Skip google/protobuf imports (not supported)
             if 'google/protobuf/' in dependency and dependency.endswith('.proto'):
-                # Well-known types are handled by our own headers
                 continue
             # Convert "path/to/file.proto" to "path/to/file.pb.h"
             include_path = dependency.replace('.proto', '.pb.h')
