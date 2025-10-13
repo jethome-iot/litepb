@@ -1,9 +1,15 @@
 # Replit Configuration for LitePB
 
 ## Overview
-LitePB is a lightweight C++ Protocol Buffer serialization and RPC framework designed for embedded systems. It offers wire format compatibility with standard Protocol Buffers, ensuring interoperability across different platforms. The project aims to provide a robust, efficient solution for message serialization and remote procedure calls in resource-constrained environments.
+LitePB is a lightweight C++ Protocol Buffer serialization library designed for embedded systems. It offers wire format compatibility with standard Protocol Buffers, ensuring interoperability across different platforms. The project provides a robust, efficient solution for message serialization in resource-constrained environments with zero external dependencies.
 
 ## Recent Changes
+**October 2025 - RPC Removal and Library Simplification:**
+- **Removed all RPC functionality** to focus purely on Protocol Buffer serialization
+- **Library is now simpler and more focused** on its core value: efficient message serialization for embedded systems
+- **Zero external dependencies** making it ideal for resource-constrained environments
+- **Test results: ALL 177 serialization tests passing (100% success rate)**
+
 **October 2025 - Complete Generator Rewrite:**
 - **Completely rewrote the Python generator from scratch** with clean, modular architecture
 - **New extensible architecture** designed for easy addition of new language backends (TypeScript, Dart, etc.)
@@ -21,8 +27,6 @@ LitePB is a lightweight C++ Protocol Buffer serialization and RPC framework desi
 - **Full protobuf feature support:**
   - All scalar types, repeated fields, maps, enums, nested messages, oneofs
   - Proto2 and proto3 syntax with proper semantics
-  - RPC service generation with custom options support
-- **Test results: ALL 170 tests passing (100% success rate)**
 - **Ready for language expansion:** New languages can be added by implementing the `LanguageGenerator` interface
 
 ## User Preferences
@@ -42,13 +46,12 @@ Communication style: Simple, everyday language
 
 ## System Architecture
 - **Build System**: PlatformIO with centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include). Integrates with a Python-based code generator for Protocol Buffer files.
-- **RPC System**: Optional feature (`custom_litepb_use_rpc`) with clean layer separation for transport addressing and message correlation. Features a protobuf-based protocol (`RpcMessage`) with versioning, explicit message types (REQUEST, RESPONSE, EVENT), and distinct error handling for RPC vs. application errors.
 - **Serialization**: Wire format compatible with standard Protocol Buffers, supporting zigzag encoding, packed repeated fields, and map field serialization.
-- **Code Generation**: A modular Python-based code generator (`generator/`) creates C++ files from `.proto` definitions. It uses Jinja2 templates, Google Protobuf descriptor objects, and supports custom RPC options. Generated files are not committed to the repository.
+- **Code Generation**: A modular Python-based code generator (`generator/`) creates C++ files from `.proto` definitions. It uses Jinja2 templates, Google Protobuf descriptor objects. Generated files are not committed to the repository.
 - **Code Style**: Enforced via `clang-format` with a `.clang-format` configuration (4-space indentation, left-aligned pointers, 132-character column limit).
 - **Header Guards**: All C++ headers (manual and generated) use `#pragma once` for simplicity and modern compiler compatibility.
 - **Containerized Development**: Utilizes a Docker environment (`ghcr.io/jethome-iot/litepb-dev:latest`) for consistent builds and CI/CD pipelines, including Python, build tools, code quality tools, and the `protoc` compiler.
-- **Testing**: Comprehensive test suites for core functionality, serialization (proto2/proto3), and RPC, organized to mirror proto structure. Code coverage reports are generated.
+- **Testing**: Comprehensive test suites for core functionality and serialization (proto2/proto3), organized to mirror proto structure. Code coverage reports are generated.
 - **CI/CD**: GitHub Actions workflows (`ci.yml`, `build-docker.yml`) manage continuous integration and deployment, performing format checks, running tests (PlatformIO, interoperability), and building examples.
 
 ## External Dependencies
