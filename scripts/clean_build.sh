@@ -10,9 +10,11 @@ echo ""
 echo "Cleaning all build artifacts..."
 echo ""
 
-# Count directories before cleaning
+# Count directories and files before cleaning
 PIO_COUNT=$(find . -name ".pio" -type d 2>/dev/null | wc -l)
 BUILD_COUNT=$(find . -name "build" -type d 2>/dev/null | wc -l)
+PB_H_COUNT=$(find . -name "*.pb.h" -type f 2>/dev/null | wc -l)
+PB_CPP_COUNT=$(find . -name "*.pb.cpp" -type f 2>/dev/null | wc -l)
 TMP_EXISTS=0
 if [ -d "tmp" ]; then
     TMP_EXISTS=1
@@ -34,6 +36,24 @@ if [ $BUILD_COUNT -gt 0 ]; then
     echo "✓ Removed build directories"
 else
     echo "No build directories found"
+fi
+
+# Remove all generated .pb.h files
+if [ $PB_H_COUNT -gt 0 ]; then
+    echo "Removing $PB_H_COUNT .pb.h files..."
+    find . -name "*.pb.h" -type f -print0 | xargs -0 rm -f
+    echo "✓ Removed .pb.h files"
+else
+    echo "No .pb.h files found"
+fi
+
+# Remove all generated .pb.cpp files
+if [ $PB_CPP_COUNT -gt 0 ]; then
+    echo "Removing $PB_CPP_COUNT .pb.cpp files..."
+    find . -name "*.pb.cpp" -type f -print0 | xargs -0 rm -f
+    echo "✓ Removed .pb.cpp files"
+else
+    echo "No .pb.cpp files found"
 fi
 
 # Remove top-level tmp directory
