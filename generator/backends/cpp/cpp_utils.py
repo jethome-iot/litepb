@@ -24,18 +24,16 @@ class CppUtils:
     
     @staticmethod
     def get_namespace_parts(package: str, namespace_prefix: str = '') -> List[str]:
-        """Split package into namespace parts with optional prefix.
+        """Split package into namespace parts without prefixing.
         
         Args:
             package: The proto package name
-            namespace_prefix: Optional prefix to add to each namespace component
+            namespace_prefix: Not used in this method anymore (kept for compatibility)
         """
         if not package:
             return []
+        # Just return the original parts without any prefix
         parts = package.split('.')
-        if namespace_prefix:
-            # Apply prefix to each part
-            parts = [namespace_prefix + part for part in parts]
         return parts
     
     @staticmethod
@@ -44,15 +42,20 @@ class CppUtils:
         
         Args:
             package: The proto package name
-            namespace_prefix: Optional prefix to add to each namespace component
+            namespace_prefix: Optional wrapper namespace to prepend
         """
         if not package:
-            return ''
+            # If no package, but we have a prefix, return just the prefix
+            return namespace_prefix if namespace_prefix else ''
+        
         parts = package.split('.')
+        result = '::'.join(parts)
+        
+        # If we have a namespace prefix, prepend it as a wrapper
         if namespace_prefix:
-            # Apply prefix to each part
-            parts = [namespace_prefix + part for part in parts]
-        return '::'.join(parts)
+            result = namespace_prefix + '::' + result
+        
+        return result
     
     @staticmethod
     def qualify_type_name(type_name: str, package: str = '', current_scope: str = '') -> str:

@@ -25,10 +25,22 @@
 #include "{{ import }}"
 {% endfor %}
 
+{% if namespace_prefix %}
+namespace {{ namespace_prefix }} {
+{% endif %}
+
 {% if package %}
-{% for ns in namespace_parts %}
+{%- set first_ns = namespace_parts[0] if namespace_parts else '' %}
+{%- if namespace_prefix and first_ns == namespace_prefix %}
+{# Skip the first namespace part if it matches the wrapper namespace #}
+{%- for ns in namespace_parts[1:] %}
 namespace {{ ns }} {
 {% endfor %}
+{%- else %}
+{%- for ns in namespace_parts %}
+namespace {{ ns }} {
+{% endfor %}
+{%- endif %}
 
 {% endif %}
 {%- for enum in enums %}
@@ -51,9 +63,21 @@ struct {{ message.name }};
 {% endif %}
 
 {% if package %}
-{% for ns in namespace_parts|reverse %}
+{%- set first_ns = namespace_parts[0] if namespace_parts else '' %}
+{%- if namespace_prefix and first_ns == namespace_prefix %}
+{# Skip the first namespace part if it matches the wrapper namespace #}
+{%- for ns in namespace_parts[1:]|reverse %}
 }  // namespace {{ ns }}
 {% endfor %}
+{%- else %}
+{%- for ns in namespace_parts|reverse %}
+}  // namespace {{ ns }}
+{% endfor %}
+{%- endif %}
+
+{% endif %}
+{% if namespace_prefix %}
+}  // namespace {{ namespace_prefix }}
 
 {% endif %}
 // Serializer specializations

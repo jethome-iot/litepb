@@ -104,17 +104,21 @@ class CppGenerator(LanguageGenerator):
         # Get namespace prefix before using it
         namespace_prefix = CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else '', self.namespace_prefix)
         
+        # For serialization, we need just the package namespace path without the wrapper
+        # When there's a wrapper namespace, serializers should reference types without it
+        package_ns = file_proto.package.replace('.', '::') if file_proto.package else ''
+        
         # Create serialization codegen instance for global serializer generation
         serialization_codegen = SerializationCodegen(file_proto, self.namespace_prefix)
-        serializer_forward_declarations = serialization_codegen.generate_all_serializer_forward_declarations(sorted_messages, namespace_prefix)
-        serializers_code = serialization_codegen.generate_all_serializers(sorted_messages, namespace_prefix, True)
+        serializer_forward_declarations = serialization_codegen.generate_all_serializer_forward_declarations(sorted_messages, package_ns)
+        serializers_code = serialization_codegen.generate_all_serializers(sorted_messages, package_ns, True)
         
         # Prepare context
         context = {
             'header_guard': CppUtils.get_header_guard(filename),
             'package': file_proto.package if file_proto.package else '',
             'namespace_parts': CppUtils.get_namespace_parts(file_proto.package if file_proto.package else '', self.namespace_prefix),
-            'namespace_prefix': namespace_prefix,
+            'namespace_prefix': self.namespace_prefix,  # Pass the raw prefix string for wrapper namespace
             'imports': import_includes,
             'uses_well_known_types': uses_well_known_types,
             'enums': list(file_proto.enum_type),

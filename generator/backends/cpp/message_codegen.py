@@ -171,7 +171,11 @@ class MessageCodegen:
         # Add unknown fields member for forward/backward compatibility
         lines.append('')
         lines.append('    // Unknown field preservation for forward/backward compatibility')
-        lines.append('    litepb::UnknownFieldSet unknown_fields;')
+        # Use global scope if we have a namespace prefix to avoid resolution issues
+        if self.namespace_prefix:
+            lines.append('    ::litepb::UnknownFieldSet unknown_fields;')
+        else:
+            lines.append('    litepb::UnknownFieldSet unknown_fields;')
 
         lines.append('};')
 
