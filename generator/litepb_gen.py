@@ -9,8 +9,8 @@ import sys
 import argparse
 from pathlib import Path
 
-from generator.core.proto_parser import ProtoParser
-from generator.backends.cpp.generator import CppGenerator
+from core.proto_parser import ProtoParser
+from backends.cpp.generator import CppGenerator
 
 
 def check_dependencies():

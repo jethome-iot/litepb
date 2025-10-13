@@ -70,18 +70,54 @@ public:
 
     void process();
 
+    // ===== Simplified API (primary interface - no addressing) =====
+    
+    // Simplified RPC call without addressing
+    template <typename Req, typename Resp>
+    bool call(uint16_t service_id, uint32_t method_id, const Req & request,
+        std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms = 0) {
+        return call_internal(service_id, method_id, request, callback, timeout_ms, 0);
+    }
+
+    // Simplified event send without addressing
+    template <typename Req>
+    bool send_event(uint16_t service_id, uint32_t method_id, const Req & request) {
+        return send_event(service_id, method_id, request, 0);
+    }
+
+    // Simplified RPC handler registration without addressing
+    template <typename Req, typename Resp>
+    void on(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(const Req &)> handler) {
+        on_internal(service_id, method_id, [handler](uint64_t src_addr, const Req & req) -> Result<Resp> {
+            (void)src_addr; // Simplified API hides addressing
+            return handler(req);
+        });
+    }
+
+    // Simplified event handler registration without addressing
+    template <typename Req>
+    void on_event(uint16_t service_id, uint32_t method_id, std::function<void(const Req &)> handler) {
+        on_event_with_addr(service_id, method_id, [handler](uint64_t src_addr, const Req & req) {
+            (void)src_addr; // Simplified API hides addressing
+            handler(req);
+        });
+    }
+
+    // ===== Low-level API (backward compatibility - with addressing) =====
+    
     template <typename Req, typename Resp>
     bool call_internal(uint16_t service_id, uint32_t method_id, const Req & request,
         std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms = 0, uint64_t dst_addr = 0);
 
     template <typename Req>
-    bool send_event(uint16_t service_id, uint32_t method_id, const Req & request, uint64_t dst_addr = 0);
+    bool send_event(uint16_t service_id, uint32_t method_id, const Req & request, uint64_t dst_addr);
 
     template <typename Req, typename Resp>
     void on_internal(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(uint64_t, const Req &)> handler);
 
+    // Renamed to avoid conflict with simplified version
     template <typename Req>
-    void on_event(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req &)> handler);
+    void on_event_with_addr(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req &)> handler);
 
 private:
     struct PendingCall {
@@ -343,7 +379,7 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
 }
 
 template <typename Req>
-void RpcChannel::on_event(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req &)> handler)
+void RpcChannel::on_event_with_addr(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req &)> handler)
 {
     handlers_[HandlerKey { service_id, method_id }] = [handler](const std::vector<uint8_t> & event_data, uint16_t msg_id,
                                                           uint64_t src_addr) {

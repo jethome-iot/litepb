@@ -4,6 +4,16 @@ package litepb.rpc;
 
 import "google/protobuf/descriptor.proto";
 
+// Call direction enum for RPC methods
+enum CallDirection {
+  // Traditional client-to-server RPC call
+  CLIENT_TO_SERVER = 0;
+  // Server-to-client call (typically for events/notifications)
+  SERVER_TO_CLIENT = 1;
+  // Bidirectional - can be called from either side
+  BIDIRECTIONAL = 2;
+}
+
 // Custom options for RPC method configuration.
 // These extend google.protobuf.MethodOptions to provide LitePB-specific metadata.
 extend google.protobuf.MethodOptions {
@@ -21,6 +31,7 @@ extend google.protobuf.MethodOptions {
   // - Efficient for notifications, telemetry, and event streams
   // Default: false (traditional request-response RPC)
   // Example: option (litepb.rpc.fire_and_forget) = true;
+  // DEPRECATED: Use is_event instead for clearer semantics
   bool fire_and_forget = 50005;
   
   // default_timeout_ms sets the default timeout for this RPC call in milliseconds.
@@ -28,6 +39,17 @@ extend google.protobuf.MethodOptions {
   // Default: Implementation-defined (typically 5000ms)
   // Example: option (litepb.rpc.default_timeout_ms) = 3000;
   uint32 default_timeout_ms = 50003;
+  
+  // direction specifies the call direction for the method
+  // Default: CLIENT_TO_SERVER (traditional RPC)
+  // Example: option (litepb.rpc.direction) = SERVER_TO_CLIENT;
+  CallDirection direction = 50007;
+  
+  // is_event marks this method as an event (no response expected)
+  // Events are typically void/empty return types and use fire-and-forget semantics
+  // Default: false
+  // Example: option (litepb.rpc.is_event) = true;
+  bool is_event = 50008;
 }
 
 // Custom options for RPC service configuration.

@@ -11,6 +11,7 @@ from google.protobuf import descriptor_pb2 as pb2
 
 from ..base import RpcGenerator
 from ...core.proto_parser import ProtoParser
+from ...core.rpc_options import CallDirection
 
 
 class LitePBRpcGenerator(RpcGenerator):
@@ -44,7 +45,7 @@ class LitePBRpcGenerator(RpcGenerator):
         return '\n'.join(lines)
     
     def generate_rpc_service(self, service: pb2.ServiceDescriptorProto, namespace_prefix: str) -> str:
-        """Generate RPC service stubs (client, server interface, and registration function)."""
+        """Generate RPC service stubs with unified base classes."""
         lines = []
         service_name = service.name
         
@@ -88,172 +89,234 @@ class LitePBRpcGenerator(RpcGenerator):
                 )
             method_ids[method_id] = method.name
         
-        # Separate methods by type (RPC vs fire-and-forget)
-        regular_methods = []
-        fire_and_forget_methods = []
+        # Categorize methods based on direction and event type
+        client_to_server_rpcs = []
+        server_to_client_events = []
+        bidirectional_methods = []
         
         for method in service.method:
             method_options = self.parser.extract_method_options(method)
-            is_fire_and_forget = method_options.fire_and_forget
             
-            if is_fire_and_forget:
-                fire_and_forget_methods.append(method)
-            else:
-                regular_methods.append(method)
-        
-        # Generate client stub class
-        lines.append(f'// Client stub for {service_name} (service_id={service_id})')
-        lines.append(f'class {service_name}Client {{')
-        lines.append('public:')
-        lines.append(f'    explicit {service_name}Client(litepb::RpcChannel& channel)')
-        lines.append('        : channel_(channel) {}')
-        lines.append('')
-        
-        # Generate client RPC methods
-        for method in regular_methods:
-            method_options = self.parser.extract_method_options(method)
-            method_name = method.name
-            method_id = method_options.method_id
-            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
-            default_timeout = method_options.default_timeout_ms
+            # For backward compatibility: fire_and_forget implies server_to_client event
+            if method_options.fire_and_forget and method_options.direction == CallDirection.CLIENT_TO_SERVER:
+                method_options.direction = CallDirection.SERVER_TO_CLIENT
+                method_options.is_event = True
             
-            lines.append(f'    // service_id={service_id}, method_id={method_id}')
-            lines.append(f'    void {method_name}(const {input_type}& request,')
-            lines.append(f'                      std::function<void(const litepb::Result<{output_type}>&)> callback,')
-            lines.append(f'                      uint32_t timeout_ms = {default_timeout},')
-            lines.append(f'                      uint64_t dst_addr = 0) {{')
-            lines.append(f'        channel_.call_internal<{input_type}, {output_type}>(')
-            lines.append(f'            {service_id}, {method_id}, request, callback, timeout_ms, dst_addr);')
-            lines.append('    }')
-            lines.append('')
+            if method_options.direction == CallDirection.CLIENT_TO_SERVER:
+                if method_options.is_event:
+                    # Client-to-server event (no response)
+                    client_to_server_rpcs.append((method, method_options))
+                else:
+                    # Standard RPC
+                    client_to_server_rpcs.append((method, method_options))
+            elif method_options.direction == CallDirection.SERVER_TO_CLIENT:
+                server_to_client_events.append((method, method_options))
+            else:  # BIDIRECTIONAL
+                bidirectional_methods.append((method, method_options))
         
-        # Generate fire-and-forget event senders
-        if fire_and_forget_methods:
-            lines.append('    // Fire-and-forget event senders')
-            for method in fire_and_forget_methods:
-                method_options = self.parser.extract_method_options(method)
-                method_name = method.name
-                method_id = method_options.method_id
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append(f'    // service_id={service_id}, method_id={method_id}')
-                lines.append(f'    bool {method_name}(const {input_type}& event, uint64_t dst_addr = 0) {{')
-                lines.append(f'        return channel_.send_event<{input_type}>({service_id}, {method_id}, event, dst_addr);')
-                lines.append('    }')
-                lines.append('')
-        
-        # Generate event handler registration
-        if fire_and_forget_methods:
-            lines.append('    // Event handler registration')
-            for method in fire_and_forget_methods:
-                method_options = self.parser.extract_method_options(method)
-                method_name = method.name
-                method_id = method_options.method_id
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append(f'    // service_id={service_id}, method_id={method_id}')
-                lines.append(f'    void on{method_name}(std::function<void(uint64_t, const {input_type}&)> handler) {{')
-                lines.append(f'        channel_.on_event<{input_type}>({service_id}, {method_id}, handler);')
-                lines.append('    }')
-                lines.append('')
-        
-        lines.append('private:')
-        lines.append('    litepb::RpcChannel& channel_;')
-        lines.append('};')
-        lines.append('')
-        
-        # Generate server interface class (only for regular RPC methods, not fire-and-forget)
-        lines.append(f'// Server interface for {service_name}')
+        # Generate unified Server base class
+        lines.append(f'// Server base class for {service_name} (service_id={service_id})')
         lines.append(f'class {service_name}Server {{')
         lines.append('public:')
+        lines.append(f'    explicit {service_name}Server(litepb::RpcChannel& channel)')
+        lines.append('        : channel_(channel) {')
+        lines.append('        // Auto-register all handlers in constructor')
+        lines.append(f'        register_handlers();')
+        lines.append('    }')
+        lines.append('')
         lines.append(f'    virtual ~{service_name}Server() = default;')
         lines.append('')
         
-        # Generate server virtual methods for regular RPC
-        for method in regular_methods:
+        # Generate pure virtual handler methods for RPCs from client
+        if client_to_server_rpcs or bidirectional_methods:
+            lines.append('    // Pure virtual RPC handlers - must be implemented by derived class')
+            for method, options in client_to_server_rpcs + bidirectional_methods:
+                if not options.is_event:
+                    method_name = method.name
+                    input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+                    output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
+                    
+                    # Check if return type is void/empty
+                    if self._is_void_type(method.output_type):
+                        lines.append(f'    virtual void handle{method_name}(const {input_type}& request) = 0;')
+                    else:
+                        lines.append(f'    virtual litepb::Result<{output_type}> handle{method_name}(const {input_type}& request) = 0;')
+                    lines.append('')
+        
+        # Generate virtual event handlers for events from client
+        for method, options in client_to_server_rpcs:
+            if options.is_event:
+                method_name = method.name
+                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+                lines.append(f'    virtual void on{method_name}(const {input_type}& event) {{}}')
+                lines.append('')
+        
+        # Generate concrete event emitters for server-to-client events
+        if server_to_client_events or bidirectional_methods:
+            lines.append('    // Concrete event emitters')
+            for method, options in server_to_client_events + bidirectional_methods:
+                if options.is_event or options.fire_and_forget:
+                    method_name = method.name
+                    input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+                    
+                    lines.append(f'    // service_id={service_id}, method_id={options.method_id}')
+                    lines.append(f'    bool emit{method_name}(const {input_type}& event) {{')
+                    lines.append(f'        return channel_.send_event<{input_type}>({service_id}, {options.method_id}, event);')
+                    lines.append('    }')
+                    lines.append('')
+        
+        lines.append('protected:')
+        lines.append('    litepb::RpcChannel& channel_;')
+        lines.append('')
+        lines.append('private:')
+        lines.append('    void register_handlers() {')
+        
+        # Register all handlers
+        for method, options in client_to_server_rpcs + bidirectional_methods:
             method_name = method.name
+            method_id = options.method_id
             input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
             output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
             
-            lines.append(f'    virtual litepb::Result<{output_type}> {method_name}(')
-            lines.append(f'        uint64_t src_addr,')
-            lines.append(f'        const {input_type}& request) = 0;')
+            if options.is_event:
+                # Register event handler
+                lines.append(f'        // Register event handler for {method_name}')
+                lines.append(f'        channel_.on_event_with_addr<{input_type}>({service_id}, {method_id},')
+                lines.append(f'            [this](uint64_t src_addr, const {input_type}& event) {{')
+                lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                lines.append(f'                this->on{method_name}(event);')
+                lines.append('            });')
+            else:
+                # Register RPC handler
+                lines.append(f'        // Register RPC handler for {method_name}')
+                if self._is_void_type(method.output_type):
+                    # Void return type - need to wrap in Result
+                    lines.append(f'        channel_.on_internal<{input_type}, google::protobuf::Empty>(')
+                    lines.append(f'            {service_id}, {method_id},')
+                    lines.append(f'            [this](uint64_t src_addr, const {input_type}& request) {{')
+                    lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                    lines.append(f'                this->handle{method_name}(request);')
+                    lines.append(f'                return litepb::Result<google::protobuf::Empty>{{}};')
+                    lines.append('            });')
+                else:
+                    lines.append(f'        channel_.on_internal<{input_type}, {output_type}>(')
+                    lines.append(f'            {service_id}, {method_id},')
+                    lines.append(f'            [this](uint64_t src_addr, const {input_type}& request) {{')
+                    lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                    lines.append(f'                return this->handle{method_name}(request);')
+                    lines.append('            });')
             lines.append('')
         
+        lines.append('    }')
         lines.append('};')
         lines.append('')
         
-        # Generate EventServer interface (for fire-and-forget events)
-        if fire_and_forget_methods:
-            lines.append(f'// EventServer interface for {service_name}')
-            lines.append(f'class {service_name}EventServer {{')
-            lines.append('public:')
-            lines.append(f'    virtual ~{service_name}EventServer() = default;')
-            lines.append('')
-            
-            # Generate handler methods for all fire-and-forget events
-            for method in fire_and_forget_methods:
+        # Generate unified Client base class
+        lines.append(f'// Client base class for {service_name} (service_id={service_id})')
+        lines.append(f'class {service_name}Client {{')
+        lines.append('public:')
+        lines.append(f'    explicit {service_name}Client(litepb::RpcChannel& channel)')
+        lines.append('        : channel_(channel) {')
+        lines.append('        // Auto-register event handlers in constructor')
+        lines.append(f'        register_event_handlers();')
+        lines.append('    }')
+        lines.append('')
+        lines.append(f'    virtual ~{service_name}Client() = default;')
+        lines.append('')
+        
+        # Generate concrete RPC call methods
+        if client_to_server_rpcs or bidirectional_methods:
+            lines.append('    // Concrete RPC call methods')
+            for method, options in client_to_server_rpcs + bidirectional_methods:
+                if not options.is_event:
+                    method_name = method.name
+                    method_id = options.method_id
+                    input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+                    output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
+                    default_timeout = options.default_timeout_ms
+                    
+                    lines.append(f'    // service_id={service_id}, method_id={method_id}')
+                    if self._is_void_type(method.output_type):
+                        # Simplified API for void returns
+                        lines.append(f'    void {method_name}(const {input_type}& request,')
+                        lines.append(f'                      std::function<void(bool success)> callback,')
+                        lines.append(f'                      uint32_t timeout_ms = {default_timeout}) {{')
+                        lines.append(f'        channel_.call_internal<{input_type}, google::protobuf::Empty>(')
+                        lines.append(f'            {service_id}, {method_id}, request,')
+                        lines.append(f'            [callback](const litepb::Result<google::protobuf::Empty>& result) {{')
+                        lines.append(f'                callback(result.error.code == litepb::RpcError::OK);')
+                        lines.append('            }, timeout_ms);')
+                    else:
+                        lines.append(f'    void {method_name}(const {input_type}& request,')
+                        lines.append(f'                      std::function<void(const litepb::Result<{output_type}>&)> callback,')
+                        lines.append(f'                      uint32_t timeout_ms = {default_timeout}) {{')
+                        lines.append(f'        channel_.call_internal<{input_type}, {output_type}>(')
+                        lines.append(f'            {service_id}, {method_id}, request, callback, timeout_ms);')
+                    lines.append('    }')
+                    lines.append('')
+        
+        # Generate concrete event emitters for client-to-server events
+        for method, options in client_to_server_rpcs:
+            if options.is_event:
                 method_name = method.name
+                method_id = options.method_id
                 input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                 
-                lines.append(f'    virtual void {method_name}Handler(uint64_t src_addr, const {input_type}& msg) {{}}')
+                lines.append(f'    // service_id={service_id}, method_id={method_id}')
+                lines.append(f'    bool emit{method_name}(const {input_type}& event) {{')
+                lines.append(f'        return channel_.send_event<{input_type}>({service_id}, {method_id}, event);')
+                lines.append('    }')
                 lines.append('')
-            
-            lines.append('};')
-            lines.append('')
         
-        # Generate registration helper function (only for regular RPC methods, not fire-and-forget)
-        lines.append(f'// Registration helper for {service_name} (service_id={service_id})')
+        # Generate virtual event handlers with empty defaults
+        if server_to_client_events or bidirectional_methods:
+            lines.append('    // Virtual event handlers - can be overridden by derived class')
+            for method, options in server_to_client_events + bidirectional_methods:
+                if options.is_event or options.fire_and_forget:
+                    method_name = method.name
+                    input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+                    
+                    lines.append(f'    virtual void on{method_name}(const {input_type}& event) {{')
+                    lines.append('        // Default empty implementation - override in derived class')
+                    lines.append('    }')
+                    lines.append('')
+        
+        lines.append('protected:')
+        lines.append('    litepb::RpcChannel& channel_;')
+        lines.append('')
+        lines.append('private:')
+        lines.append('    void register_event_handlers() {')
+        
+        # Register event handlers
+        for method, options in server_to_client_events + bidirectional_methods:
+            if options.is_event or options.fire_and_forget:
+                method_name = method.name
+                method_id = options.method_id
+                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
+                
+                lines.append(f'        // Register event handler for {method_name}')
+                lines.append(f'        channel_.on_event_with_addr<{input_type}>({service_id}, {method_id},')
+                lines.append(f'            [this](uint64_t src_addr, const {input_type}& event) {{')
+                lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                lines.append(f'                this->on{method_name}(event);')
+                lines.append('            });')
+                lines.append('')
+        
+        lines.append('    }')
+        lines.append('};')
+        lines.append('')
+        
+        # Generate backward compatibility registration helpers (optional, for migration)
+        lines.append(f'// Backward compatibility helper (deprecated)')
+        lines.append(f'[[deprecated("Use {service_name}Server constructor instead")]]')
         lines.append(f'inline void register_{self._to_snake_case(service_name)}(')
         lines.append(f'    litepb::RpcChannel& channel,')
         lines.append(f'    {service_name}Server& server) {{')
-        
-        # Register each regular RPC method
-        for method in regular_methods:
-            method_options = self.parser.extract_method_options(method)
-            method_name = method.name
-            method_id = method_options.method_id
-            input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-            output_type = self._get_qualified_type_name(method.output_type, namespace_prefix)
-            
-            lines.append('')
-            lines.append(f'    // service_id={service_id}, method_id={method_id}')
-            lines.append(f'    channel.on_internal<{input_type}, {output_type}>(')
-            lines.append(f'        {service_id}, {method_id},')
-            lines.append(f'        [&server](uint64_t src_addr, const {input_type}& request) {{')
-            lines.append(f'            return server.{method_name}(src_addr, request);')
-            lines.append('        });')
-        
+        lines.append('    // Server now auto-registers in constructor')
+        lines.append('    (void)channel;')
+        lines.append('    (void)server;')
         lines.append('}')
         lines.append('')
-        
-        # Generate event registration helper (for fire-and-forget events)
-        if fire_and_forget_methods:
-            lines.append(f'// Event registration helper for {service_name} (service_id={service_id})')
-            lines.append(f'inline void register_{self._to_snake_case(service_name)}_events(')
-            lines.append(f'    litepb::RpcChannel& channel,')
-            lines.append(f'    {service_name}EventServer* handler) {{')
-            lines.append('    if (handler) {')
-            
-            # Register each fire-and-forget event
-            for method in fire_and_forget_methods:
-                method_options = self.parser.extract_method_options(method)
-                method_name = method.name
-                method_id = method_options.method_id
-                input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
-                
-                lines.append('')
-                lines.append(f'        // service_id={service_id}, method_id={method_id}')
-                lines.append(f'        channel.on_event<{input_type}>(')
-                lines.append(f'            {service_id}, {method_id},')
-                lines.append(f'            [handler](uint64_t src_addr, const {input_type}& msg) {{')
-                lines.append(f'                handler->{method_name}Handler(src_addr, msg);')
-                lines.append('            });')
-            
-            lines.append('    }')
-            lines.append('}')
-            lines.append('')
         
         return '\n'.join(lines)
     
@@ -273,6 +336,20 @@ class LitePBRpcGenerator(RpcGenerator):
             return type_name[len(namespace_prefix) + 2:]
         
         return type_name
+    
+    def _is_void_type(self, type_name: str) -> bool:
+        """Check if the type is void or Empty."""
+        # Remove leading dot if present
+        if type_name.startswith('.'):
+            type_name = type_name[1:]
+        
+        void_types = [
+            'google.protobuf.Empty',
+            'Empty',
+            'void'  # Support explicit void
+        ]
+        
+        return type_name in void_types or type_name.endswith('::Empty') or type_name.endswith('.Empty')
     
     def _to_snake_case(self, name: str) -> str:
         """Convert CamelCase to snake_case."""

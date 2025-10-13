@@ -10,6 +10,14 @@ RpcMessage (see rpc_protocol.proto) and handled by the wire protocol layer.
 
 from dataclasses import dataclass
 from typing import Optional
+from enum import IntEnum
+
+
+class CallDirection(IntEnum):
+    """Call direction for RPC methods."""
+    CLIENT_TO_SERVER = 0
+    SERVER_TO_CLIENT = 1
+    BIDIRECTIONAL = 2
 
 
 @dataclass
@@ -17,7 +25,9 @@ class RpcMethodOptions:
     """Dataclass representing parsed RPC method option values."""
     method_id: Optional[int] = None
     default_timeout_ms: int = 5000
-    fire_and_forget: bool = False
+    fire_and_forget: bool = False  # Deprecated, use is_event
+    direction: CallDirection = CallDirection.CLIENT_TO_SERVER
+    is_event: bool = False
 
 
 @dataclass
@@ -32,11 +42,15 @@ class MethodOptions:
     These are compile-time options specified in .proto files:
     - DEFAULT_TIMEOUT_MS: Default timeout for RPC calls in milliseconds
     - METHOD_ID: Unique identifier for the method within its service
-    - FIRE_AND_FORGET: Whether the method is one-way (no response expected)
+    - FIRE_AND_FORGET: Whether the method is one-way (no response expected) - DEPRECATED
+    - DIRECTION: Call direction (CLIENT_TO_SERVER, SERVER_TO_CLIENT, BIDIRECTIONAL)
+    - IS_EVENT: Whether the method is an event (no response expected)
     """
     DEFAULT_TIMEOUT_MS = 50003
     METHOD_ID = 50004
     FIRE_AND_FORGET = 50005
+    DIRECTION = 50007
+    IS_EVENT = 50008
 
 
 class ServiceOptions:

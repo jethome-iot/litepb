@@ -27,4 +27,4 @@ outputType = "console"
 
 [nix]
 channel = "stable-25_05"
-packages = ["protobuf", "clang-tools", "gdb", "valgrind", "cmake", "abseil-cpp", "pkg-config", "lcov", "gcc", "gcovr", "gh", "act", "mc", "jq"]
+packages = ["abseil-cpp", "act", "clang-tools", "cmake", "gcc", "gcovr", "gdb", "gh", "jq", "lcov", "mc", "pkg-config", "protobuf", "valgrind"]
