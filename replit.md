@@ -17,7 +17,7 @@ Communication style: Simple, everyday language
   - See existing scripts in `scripts/*.sh` for examples
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 - Use `#pragma once` at the top of all C++ header files instead of traditional include guards - this is simpler, less error-prone, and supported by all modern compilers
-- Run tests after each build: 1) `scripts/run_platformio_tests.sh` (177 unit tests) 2) `scripts/run_interop_tests.sh` (10 interop tests) 3) `scripts/run_platformio_examples.sh` 4) `scripts/run_cmake_examples.sh`
+- Run tests after each build: 1) `scripts/run_platformio_tests.sh` (163 unit tests) 2) `scripts/run_interop_tests.sh` (18 interop tests) 3) `scripts/run_platformio_examples.sh` 4) `scripts/run_cmake_examples.sh`
 
 ## System Architecture
 - **Build System**: Supports both PlatformIO (for embedded development) and CMake (for general C++ projects). PlatformIO uses centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include). CMake configuration in `cmake/CMakeLists.txt` builds LitePB as a static library with proper installation and packaging support. Both integrate with the Python-based code generator for Protocol Buffer files.
@@ -26,7 +26,7 @@ Communication style: Simple, everyday language
 - **Code Style**: Enforced via `clang-format` with a `.clang-format` configuration (4-space indentation, left-aligned pointers, 132-character column limit).
 - **Header Guards**: All C++ headers (manual and generated) use `#pragma once` for simplicity and modern compiler compatibility.
 - **Containerized Development**: Utilizes a Docker environment (`ghcr.io/jethome-iot/litepb-dev:latest`) for consistent builds and CI/CD pipelines, including Python, build tools, code quality tools, and the `protoc` compiler.
-- **Testing**: Comprehensive test suites including 177 PlatformIO unit tests and 10 interoperability tests. Code coverage reports are generated.
+- **Testing**: Comprehensive test suites including 163 PlatformIO unit tests and 18 interoperability tests (181 total). Interop tests verify wire format compatibility across all Protocol Buffer features: basic/signed/fixed scalar types, repeated fields (packed/unpacked), maps (various key-value types), nested messages, oneof fields, enums (top-level/nested), proto3 optional fields, empty messages, large field numbers, and unknown fields preservation. Code coverage reports are generated.
 - **CI/CD**: GitHub Actions workflows (`ci.yml`, `build-docker.yml`) manage continuous integration and deployment, performing format checks, running tests, and building examples.
 
 ## External Dependencies
