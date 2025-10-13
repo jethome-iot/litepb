@@ -44,44 +44,10 @@ class CppGenerator(LanguageGenerator):
         self.env.globals['generate_serializer_spec'] = self.generate_serializer_spec
         self.env.globals['generate_serializer_impl'] = self.generate_serializer_impl
     
-    def _check_uses_well_known_types(self, file_proto: pb2.FileDescriptorProto) -> bool:
-        """Check if this proto file uses any well-known types."""
-        # Check dependencies for well-known type imports
-        for dep in file_proto.dependency:
-            if 'google/protobuf/' in dep and dep.endswith('.proto'):
-                # Check for specific well-known type imports
-                well_known_protos = [
-                    'empty.proto', 'timestamp.proto', 'duration.proto', 'any.proto',
-                    'wrappers.proto', 'struct.proto', 'field_mask.proto'
-                ]
-                if any(wkt in dep for wkt in well_known_protos):
-                    return True
-        
-        # Check all message fields for well-known types
-        def check_message_fields(message):
-            for field in message.field:
-                if field.type == pb2.FieldDescriptorProto.TYPE_MESSAGE:
-                    if TypeMapper.is_well_known_type(field.type_name):
-                        return True
-            # Check nested messages
-            for nested in message.nested_type:
-                if check_message_fields(nested):
-                    return True
-            return False
-        
-        for message in file_proto.message_type:
-            if check_message_fields(message):
-                return True
-        
-        return False
-    
     def generate_header(self, file_proto: pb2.FileDescriptorProto, filename: str) -> str:
         """Generate C++ header file content."""
         self.current_proto = file_proto  # Set context for type generation
         template = self.env.get_template('header.j2')
-        
-        # Check if this proto uses well-known types
-        uses_well_known_types = self._check_uses_well_known_types(file_proto)
         
         # Convert imports to include paths
         import_includes = []
@@ -120,7 +86,6 @@ class CppGenerator(LanguageGenerator):
             'namespace_parts': CppUtils.get_namespace_parts(file_proto.package if file_proto.package else '', self.namespace_prefix),
             'namespace_prefix': self.namespace_prefix,  # Pass the raw prefix string for wrapper namespace
             'imports': import_includes,
-            'uses_well_known_types': uses_well_known_types,
             'enums': list(file_proto.enum_type),
             'messages': sorted_messages,
             'serializer_forward_declarations': serializer_forward_declarations,
