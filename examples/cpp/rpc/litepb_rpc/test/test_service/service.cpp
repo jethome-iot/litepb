@@ -419,8 +419,7 @@ void test_fire_and_forget_event_basic()
 
     peer_b_channel.on_event<AlertNotification>(1, 3,
                                                [&handler_called, &received_sensor_id, &received_temperature, &received_status,
-                                                &received_message](uint64_t src_addr, const AlertNotification& event) {
-                                                   (void) src_addr;
+                                                &received_message](const AlertNotification& event) {
                                                    handler_called       = true;
                                                    received_sensor_id   = event.sensor_id;
                                                    received_temperature = event.temperature;
@@ -463,7 +462,7 @@ void test_event_no_pending_call_slot()
     int event_count = 0;
 
     peer_b_channel.on_event<AlertNotification>(
-        1, 3, [&event_count](uint64_t src_addr, const AlertNotification& event) { event_count++; });
+        1, 3, [&event_count](const AlertNotification& event) { event_count++; });
 
     const int num_events = 20;
     for (int i = 0; i < num_events; ++i) {
@@ -516,8 +515,7 @@ void test_event_and_rpc_interleaving()
             return result;
         });
 
-    peer_b_channel.on_event<AlertNotification>(1, 3, [&event_received](uint64_t src_addr, const AlertNotification& event) {
-        (void) src_addr;
+    peer_b_channel.on_event<AlertNotification>(1, 3, [&event_received](const AlertNotification& event) {
         event_received = true;
     });
 
@@ -587,15 +585,13 @@ void test_bidirectional_events()
     int32_t server_received_id = 0;
 
     peer_b_channel.on_event<AlertNotification>(
-        1, 3, [&server_event_received, &server_received_id](uint64_t src_addr, const AlertNotification& event) {
-            (void) src_addr;
+        1, 3, [&server_event_received, &server_received_id](const AlertNotification& event) {
             server_event_received = true;
             server_received_id    = event.sensor_id;
         });
 
     peer_a_channel.on_event<AlertNotification>(
-        1, 3, [&client_event_received, &client_received_id](uint64_t src_addr, const AlertNotification& event) {
-            (void) src_addr;
+        1, 3, [&client_event_received, &client_received_id](const AlertNotification& event) {
             client_event_received = true;
             client_received_id    = event.sensor_id;
         });
@@ -650,8 +646,7 @@ void test_event_serialization_correctness()
     AlertNotification received_event;
 
     peer_b_channel.on_event<AlertNotification>(
-        1, 3, [&handler_called, &received_event](uint64_t src_addr, const AlertNotification& event) {
-            (void) src_addr;
+        1, 3, [&handler_called, &received_event](const AlertNotification& event) {
             handler_called = true;
             received_event = event;
         });

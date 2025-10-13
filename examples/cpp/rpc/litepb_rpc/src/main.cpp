@@ -31,15 +31,13 @@ int main()
     std::cout << std::endl;
 
     SensorSimulator simulator;
-    SensorServiceImpl sensor_service(simulator);
-    setup_sensor_service(peer_b_channel, sensor_service);
+    SensorServiceImpl sensor_service(peer_b_channel, simulator);
 
     SwitchManager switch_manager;
-    SwitchServiceImpl switch_service(switch_manager);
-    setup_switch_service(peer_b_channel, switch_service);
+    SwitchServiceImpl switch_service(peer_b_channel, switch_manager);
 
     std::cout << "Step 2: Setting up StateChanged event handler on Peer A..." << std::endl;
-    peer_a_channel.on_event<StateChangedEvent>(2, 4, [](uint64_t src_addr, const StateChangedEvent& event) {
+    peer_a_channel.on_event<StateChangedEvent>(2, 4, [](const StateChangedEvent& event) {
         std::cout << "  [Peer A] StateChanged EVENT: Switch " << event.switch_id << " is now " << (event.is_on ? "ON" : "OFF")
                   << std::endl;
         std::cout << "           Reason: " << event.reason << std::endl;
@@ -142,14 +140,13 @@ int main()
     std::cout << std::endl;
 
     std::cout << "Step 6: Peer B sends StateChanged fire-and-forget event..." << std::endl;
-    SwitchServiceClient peer_b_switch_client(peer_b_channel);
-
+    
     StateChangedEvent state_event;
     state_event.switch_id = 1;
     state_event.is_on     = switch_manager.get_state(1);
     state_event.reason    = "Manual state change notification";
 
-    bool event_sent = peer_b_switch_client.StateChanged(state_event);
+    bool event_sent = switch_service.emitStateChanged(state_event);
     std::cout << "  [Peer B] StateChanged event sent: " << (event_sent ? "SUCCESS" : "FAILED") << std::endl;
 
     for (int i = 0; i < 20; ++i) {

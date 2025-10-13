@@ -46,12 +46,12 @@ private:
 
 class SwitchServiceImpl : public switch_service::SwitchServiceServer {
 public:
-    SwitchServiceImpl(SwitchManager & manager)
-        : manager_(manager)
+    SwitchServiceImpl(litepb::RpcChannel& channel, SwitchManager & manager)
+        : SwitchServiceServer(channel), manager_(manager)
     {
     }
 
-    litepb::Result<switch_service::TurnOnResponse> TurnOn(uint64_t src_addr, const switch_service::TurnOnRequest & request) override
+    litepb::Result<switch_service::TurnOnResponse> handleTurnOn(const switch_service::TurnOnRequest & request) override
     {
         std::cout << "  [Peer B] Received TurnOn request for switch_id=" << request.switch_id << std::endl;
 
@@ -66,8 +66,7 @@ public:
         return result;
     }
 
-    litepb::Result<switch_service::TurnOffResponse> TurnOff(uint64_t src_addr,
-        const switch_service::TurnOffRequest & request) override
+    litepb::Result<switch_service::TurnOffResponse> handleTurnOff(const switch_service::TurnOffRequest & request) override
     {
         std::cout << "  [Peer B] Received TurnOff request for switch_id=" << request.switch_id << std::endl;
 
@@ -82,7 +81,7 @@ public:
         return result;
     }
 
-    litepb::Result<switch_service::ToggleResponse> Toggle(uint64_t src_addr, const switch_service::ToggleRequest & request) override
+    litepb::Result<switch_service::ToggleResponse> handleToggle(const switch_service::ToggleRequest & request) override
     {
         std::cout << "  [Peer B] Received Toggle request for switch_id=" << request.switch_id << std::endl;
 
@@ -101,4 +100,3 @@ private:
     SwitchManager & manager_;
 };
 
-void setup_switch_service(litepb::RpcChannel & channel, switch_service::SwitchServiceServer & service);

@@ -97,10 +97,11 @@ public:
     // Simplified event handler registration without addressing
     template <typename Req>
     void on_event(uint16_t service_id, uint32_t method_id, std::function<void(const Req &)> handler) {
-        on_event_with_addr(service_id, method_id, [handler](uint64_t src_addr, const Req & req) {
+        std::function<void(uint64_t, const Req &)> wrapper = [handler](uint64_t src_addr, const Req & req) {
             (void)src_addr; // Simplified API hides addressing
             handler(req);
-        });
+        };
+        on_event_with_addr<Req>(service_id, method_id, wrapper);
     }
 
     // ===== Low-level API (backward compatibility - with addressing) =====

@@ -64,13 +64,12 @@ private:
 
 class SensorServiceImpl : public examples::sensor::SensorServiceServer {
 public:
-    SensorServiceImpl(SensorSimulator & simulator)
-        : simulator_(simulator)
+    SensorServiceImpl(litepb::RpcChannel& channel, SensorSimulator & simulator)
+        : SensorServiceServer(channel), simulator_(simulator)
     {
     }
 
-    litepb::Result<examples::sensor::ReadingResponse> GetReading(uint64_t src_addr,
-        const examples::sensor::ReadingRequest & request) override
+    litepb::Result<examples::sensor::ReadingResponse> handleGetReading(const examples::sensor::ReadingRequest & request) override
     {
         std::cout << "  [Peer B] Received GetReading request for sensor_id=" << request.sensor_id << std::endl;
 
@@ -84,7 +83,7 @@ public:
         return result;
     }
 
-    litepb::Result<examples::sensor::AlertAck> NotifyAlert(uint64_t src_addr, const examples::sensor::AlertEvent & request) override
+    litepb::Result<examples::sensor::AlertAck> handleNotifyAlert(const examples::sensor::AlertEvent & request) override
     {
         std::cout << "  [Peer A] ALERT RECEIVED from sensor " << request.sensor_id << ": " << request.message << std::endl;
         std::cout << "  [Peer A]   Temperature: " << request.temperature << ", Status: " << static_cast<int>(request.status)
@@ -101,4 +100,3 @@ private:
     SensorSimulator & simulator_;
 };
 
-void setup_sensor_service(litepb::RpcChannel & channel, examples::sensor::SensorServiceServer & service);
