@@ -188,11 +188,6 @@ else:
     env.Append(CPPPATH=[str(OUTDIR_DIR)])
     #env.Append(CPPPATH=[LITEPB_SRC_PATH.resolve()]) # our own sources
 
-    # If custom_litepb_use_rpc is enabled, add definition LITEPB_WITH_RPC
-    if custom_litepb_use_rpc:
-        env.Append(CPPDEFINES=["LITEPB_WITH_RPC"])
-        projenv.Append(CPPDEFINES=["LITEPB_WITH_RPC"]) if projenv else None
-
     print(f"[litepb] Enabled. Outputs -> {OUTDIR_DIR}")
     print(f"[litepb] Protos ({len(proto_files)}):")
     for pf in proto_files:
