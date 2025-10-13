@@ -65,6 +65,11 @@ def main():
         dest='include',
         help='Add directory to the import path (can be specified multiple times)'
     )
+    parser.add_argument(
+        '-np', '--namespace-prefix',
+        default='',
+        help='Prefix to add to all generated namespaces (e.g., "litepb_" for namespace conflict resolution)'
+    )
     
     args = parser.parse_args()
     
@@ -81,7 +86,7 @@ def main():
     
     # Initialize parser and generator
     proto_parser = ProtoParser(import_paths=include_paths)
-    cpp_gen = CppGenerator()
+    cpp_gen = CppGenerator(namespace_prefix=args.namespace_prefix)
     
     # Process each proto file
     for proto_file in args.proto_files:

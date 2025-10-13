@@ -13,9 +13,15 @@ from .models import MapFieldInfo, OneofInfo
 class SerializationCodegen:
     """Generate C++ serialization/deserialization code."""
     
-    def __init__(self, current_proto: pb2.FileDescriptorProto):
-        """Initialize with current proto context."""
+    def __init__(self, current_proto: pb2.FileDescriptorProto, namespace_prefix: str = ''):
+        """Initialize with current proto context.
+        
+        Args:
+            current_proto: The FileDescriptorProto being processed
+            namespace_prefix: Optional prefix to add to all namespaces
+        """
         self.current_proto = current_proto
+        self.namespace_prefix = namespace_prefix
     
     def _collect_all_nested(self, message: pb2.DescriptorProto, ns_prefix: str, result: dict) -> None:
         """Recursively collect all nested messages into a dict."""

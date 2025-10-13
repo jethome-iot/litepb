@@ -23,18 +23,36 @@ class CppUtils:
         return os.path.basename(filename).replace('.proto', '.pb.h')
     
     @staticmethod
-    def get_namespace_parts(package: str) -> List[str]:
-        """Split package into namespace parts."""
+    def get_namespace_parts(package: str, namespace_prefix: str = '') -> List[str]:
+        """Split package into namespace parts with optional prefix.
+        
+        Args:
+            package: The proto package name
+            namespace_prefix: Optional prefix to add to each namespace component
+        """
         if not package:
             return []
-        return package.split('.')
+        parts = package.split('.')
+        if namespace_prefix:
+            # Apply prefix to each part
+            parts = [namespace_prefix + part for part in parts]
+        return parts
     
     @staticmethod
-    def get_namespace_prefix(package: str) -> str:
-        """Get full namespace prefix for qualified names."""
+    def get_namespace_prefix(package: str, namespace_prefix: str = '') -> str:
+        """Get full namespace prefix for qualified names.
+        
+        Args:
+            package: The proto package name
+            namespace_prefix: Optional prefix to add to each namespace component
+        """
         if not package:
             return ''
-        return package.replace('.', '::')
+        parts = package.split('.')
+        if namespace_prefix:
+            # Apply prefix to each part
+            parts = [namespace_prefix + part for part in parts]
+        return '::'.join(parts)
     
     @staticmethod
     def qualify_type_name(type_name: str, package: str = '', current_scope: str = '') -> str:

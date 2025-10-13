@@ -12,9 +12,15 @@ from .field_utils import FieldUtils
 class MessageCodegen:
     """Generate C++ code for messages and enums."""
     
-    def __init__(self, current_proto: pb2.FileDescriptorProto):
-        """Initialize with current proto context."""
+    def __init__(self, current_proto: pb2.FileDescriptorProto, namespace_prefix: str = ''):
+        """Initialize with current proto context.
+        
+        Args:
+            current_proto: The FileDescriptorProto being processed
+            namespace_prefix: Optional prefix to add to all namespaces
+        """
         self.current_proto = current_proto
+        self.namespace_prefix = namespace_prefix
     
     def generate_enum(self, enum_proto: pb2.EnumDescriptorProto, indent: int = 0) -> str:
         """Generate enum definition."""
@@ -187,6 +193,13 @@ class MessageCodegen:
         
         # For proto3 implicit fields and proto2 required fields, provide default values
         if field.type == pb2.FieldDescriptorProto.TYPE_ENUM:
-            return f'static_cast<{TypeMapper.qualify_type_name(field.type_name, "")}>(0)'
+            # Extract the simple type name from the full type name
+            type_name = field.type_name
+            # Remove leading dot if present
+            if type_name.startswith('.'):
+                type_name = type_name[1:]
+            # Get just the enum name (last part after the final dot)
+            simple_name = type_name.split('.')[-1]
+            return f'static_cast<{simple_name}>(0)'
         
         return TypeMapper.DEFAULT_VALUES.get(field.type, '')

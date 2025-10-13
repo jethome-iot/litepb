@@ -55,22 +55,22 @@ set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY ${GENERATED_DIR})
 file(MAKE_DIRECTORY ${GENERATED_DIR}/protoc)
 
-# Generate protoc C++ code from test_vectors_protoc.proto
+# Generate protoc C++ code from test_vectors.proto
 add_custom_command(
     OUTPUT 
-        ${GENERATED_DIR}/protoc/test_vectors_protoc.pb.h
-        ${GENERATED_DIR}/protoc/test_vectors_protoc.pb.cc
+        ${GENERATED_DIR}/protoc/test_vectors.pb.h
+        ${GENERATED_DIR}/protoc/test_vectors.pb.cc
     COMMAND $<TARGET_FILE:protobuf::protoc>
         --cpp_out=${GENERATED_DIR}/protoc
         --proto_path=${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors_protoc.proto
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
     DEPENDS 
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors_protoc.proto
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
         protobuf::protoc
-    COMMENT "Generating protoc C++ code from test_vectors_protoc.proto"
+    COMMENT "Generating protoc C++ code from test_vectors.proto"
 )
 
-# Generate LitePB C++ code from test_vectors.proto
+# Generate LitePB C++ code from test_vectors.proto with namespace prefix
 add_custom_command(
     OUTPUT 
         ${GENERATED_DIR}/test_vectors.pb.h
@@ -79,10 +79,11 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
         -o ${GENERATED_DIR}
         -I ${CMAKE_CURRENT_SOURCE_DIR}
+        --namespace-prefix=litepb_
     DEPENDS 
         ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
         ${LITEPB_GENERATOR}
-    COMMENT "Generating LitePB C++ code from test_vectors.proto"
+    COMMENT "Generating LitePB C++ code from test_vectors.proto with namespace prefix"
 )
 
 # Unity source files
@@ -101,7 +102,7 @@ add_executable(interop_tests
     protoc_helpers.cpp
     test_runner.cpp
     ${GENERATED_DIR}/test_vectors.pb.cpp
-    ${GENERATED_DIR}/protoc/test_vectors_protoc.pb.cc
+    ${GENERATED_DIR}/protoc/test_vectors.pb.cc
     ${LITEPB_CORE_SOURCES}
     ${UNITY_SRC_DIR}/unity.c
 )

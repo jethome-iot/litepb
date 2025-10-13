@@ -20,9 +20,14 @@ from ...core.proto_parser import ProtoParser
 class CppGenerator(LanguageGenerator):
     """Generate C++ code from parsed protobuf structures."""
     
-    def __init__(self):
-        """Initialize the generator with templates."""
+    def __init__(self, namespace_prefix: str = ''):
+        """Initialize the generator with templates.
+        
+        Args:
+            namespace_prefix: Optional prefix to add to all namespaces (e.g., "litepb_")
+        """
         self.current_proto = None  # Track current proto for context (FileDescriptorProto)
+        self.namespace_prefix = namespace_prefix
         self.parser = ProtoParser()
         self.setup_templates()
     
@@ -97,10 +102,10 @@ class CppGenerator(LanguageGenerator):
         sorted_messages = CppUtils.topological_sort_messages(messages)
         
         # Get namespace prefix before using it
-        namespace_prefix = CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else '')
+        namespace_prefix = CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else '', self.namespace_prefix)
         
         # Create serialization codegen instance for global serializer generation
-        serialization_codegen = SerializationCodegen(file_proto)
+        serialization_codegen = SerializationCodegen(file_proto, self.namespace_prefix)
         serializer_forward_declarations = serialization_codegen.generate_all_serializer_forward_declarations(sorted_messages, namespace_prefix)
         serializers_code = serialization_codegen.generate_all_serializers(sorted_messages, namespace_prefix, True)
         
@@ -108,7 +113,7 @@ class CppGenerator(LanguageGenerator):
         context = {
             'header_guard': CppUtils.get_header_guard(filename),
             'package': file_proto.package if file_proto.package else '',
-            'namespace_parts': CppUtils.get_namespace_parts(file_proto.package if file_proto.package else ''),
+            'namespace_parts': CppUtils.get_namespace_parts(file_proto.package if file_proto.package else '', self.namespace_prefix),
             'namespace_prefix': namespace_prefix,
             'imports': import_includes,
             'uses_well_known_types': uses_well_known_types,
@@ -128,7 +133,7 @@ class CppGenerator(LanguageGenerator):
         # Prepare context
         context = {
             'include_file': CppUtils.get_include_filename(filename),
-            'namespace_prefix': CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else ''),
+            'namespace_prefix': CppUtils.get_namespace_prefix(file_proto.package if file_proto.package else '', self.namespace_prefix),
             'messages': list(file_proto.message_type),
         }
         
@@ -139,7 +144,7 @@ class CppGenerator(LanguageGenerator):
     def generate_enum(self, enum_proto: pb2.EnumDescriptorProto, indent: int = 0) -> str:
         """Generate enum definition."""
         assert self.current_proto is not None, "current_proto must be set before generating enum"
-        message_codegen = MessageCodegen(self.current_proto)
+        message_codegen = MessageCodegen(self.current_proto, self.namespace_prefix)
         return message_codegen.generate_enum(enum_proto, indent)
     
     def generate_message(self, message: pb2.DescriptorProto, indent: int = 0) -> str:
@@ -157,13 +162,13 @@ class CppGenerator(LanguageGenerator):
     def generate_message_declaration(self, message: pb2.DescriptorProto) -> str:
         """Generate forward declaration for a message and its nested types."""
         assert self.current_proto is not None, "current_proto must be set before generating message declaration"
-        message_codegen = MessageCodegen(self.current_proto)
+        message_codegen = MessageCodegen(self.current_proto, self.namespace_prefix)
         return message_codegen.generate_message_declaration(message)
 
     def generate_message_definition(self, message: pb2.DescriptorProto) -> str:
         """Generate complete definition for a message."""
         assert self.current_proto is not None, "current_proto must be set before generating message definition"
-        message_codegen = MessageCodegen(self.current_proto)
+        message_codegen = MessageCodegen(self.current_proto, self.namespace_prefix)
         return message_codegen.generate_message_definition(message)
 
     def generate_serializer_spec(self, message: pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
