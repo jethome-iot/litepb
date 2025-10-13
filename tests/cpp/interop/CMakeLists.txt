@@ -79,7 +79,7 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
         -o ${GENERATED_DIR}
         -I ${CMAKE_CURRENT_SOURCE_DIR}
-        --namespace-prefix=litepb
+        --namespace-prefix=litepb_gen
     DEPENDS 
         ${CMAKE_CURRENT_SOURCE_DIR}/test_vectors.proto
         ${LITEPB_GENERATOR}

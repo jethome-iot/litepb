@@ -29,6 +29,9 @@ class SerializationCodegen:
             if not (nested_msg.HasField('options') and nested_msg.options.map_entry):
                 nested_prefix = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
                 full_name = f'{nested_prefix}::{nested_msg.name}'
+                # Apply namespace prefix wrapper if provided
+                if self.namespace_prefix:
+                    full_name = f'{self.namespace_prefix}::{full_name}'
                 result[full_name] = (nested_msg, nested_prefix)
                 self._collect_all_nested(nested_msg, nested_prefix, result)
     
@@ -158,6 +161,9 @@ class SerializationCodegen:
     def _collect_messages_for_forward_decl(self, message: pb2.DescriptorProto, ns_prefix: str, result: List[tuple]) -> None:
         """Recursively collect all messages for forward declarations."""
         msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        # Apply namespace prefix wrapper if provided
+        if self.namespace_prefix:
+            msg_type = f'{self.namespace_prefix}::{msg_type}'
         result.append((msg_type, message))
         
         for nested_msg in message.nested_type:
@@ -204,6 +210,9 @@ class SerializationCodegen:
         
         # Then add the parent message
         full_name = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        # Apply namespace prefix wrapper if provided
+        if self.namespace_prefix:
+            full_name = f'{self.namespace_prefix}::{full_name}'
         result.append((full_name, message, ns_prefix))
 
     def generate_serializer_spec(self, message: pb2.DescriptorProto, ns_prefix: str, inline: bool) -> str:
@@ -213,6 +222,9 @@ class SerializationCodegen:
         # Collect all messages with their fully qualified names
         all_msgs = {}
         full_name = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        # Apply namespace prefix wrapper if provided
+        if self.namespace_prefix:
+            full_name = f'{self.namespace_prefix}::{full_name}'
         all_msgs[full_name] = (message, ns_prefix)
         self._collect_all_nested(message, ns_prefix, all_msgs)
         
@@ -236,6 +248,9 @@ class SerializationCodegen:
         """Generate a single serializer specialization without recursion."""
         lines = []
         msg_type = f'{ns_prefix}::{message.name}' if ns_prefix else message.name
+        # Apply namespace prefix wrapper if provided
+        if self.namespace_prefix:
+            msg_type = f'{self.namespace_prefix}::{msg_type}'
         inline_str = 'inline ' if inline else ''
         
         lines.append(f'template<>')

@@ -26,7 +26,7 @@ void tearDown() {}
 
 void test_basic_scalars()
 {
-    litepb::test::interop::BasicScalars litepb_msg;
+    litepb_gen::litepb::test::interop::BasicScalars litepb_msg;
     litepb_msg.int32_field  = 42;
     litepb_msg.string_field = "test";
 
@@ -44,7 +44,7 @@ void test_basic_scalars()
 
     auto protoc_encoded = protoc_encode_basic_scalars(100, "hello");
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::BasicScalars litepb_decoded;
+    litepb_gen::litepb::test::interop::BasicScalars litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_INT32(100, litepb_decoded.int32_field);
@@ -57,7 +57,7 @@ void test_basic_scalars()
 
 void test_all_scalars()
 {
-    litepb::test::interop::AllScalars litepb_msg;
+    litepb_gen::litepb::test::interop::AllScalars litepb_msg;
     litepb_msg.v_int32  = -123;
     litepb_msg.v_int64  = -9876543210LL;
     litepb_msg.v_uint32 = 456;
@@ -97,7 +97,7 @@ void test_all_scalars()
 
     auto protoc_encoded = protoc_encode_all_scalars(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::AllScalars litepb_decoded;
+    litepb_gen::litepb::test::interop::AllScalars litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_INT32(789, litepb_decoded.v_int32);
@@ -128,7 +128,7 @@ void test_all_scalars()
 
 void test_signed_ints()
 {
-    litepb::test::interop::SignedInts litepb_msg;
+    litepb_gen::litepb::test::interop::SignedInts litepb_msg;
     litepb_msg.v_sint32 = -42;
     litepb_msg.v_sint64 = -9876543210LL;
 
@@ -147,7 +147,7 @@ void test_signed_ints()
 
     auto protoc_encoded = protoc_encode_signed_ints(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::SignedInts litepb_decoded;
+    litepb_gen::litepb::test::interop::SignedInts litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_INT32(123, litepb_decoded.v_sint32);
@@ -156,7 +156,7 @@ void test_signed_ints()
 
 void test_fixed_types()
 {
-    litepb::test::interop::FixedTypes litepb_msg;
+    litepb_gen::litepb::test::interop::FixedTypes litepb_msg;
     litepb_msg.v_fixed32  = 0x12345678;
     litepb_msg.v_fixed64  = 0x123456789ABCDEF0ULL;
     litepb_msg.v_sfixed32 = -123456;
@@ -181,7 +181,7 @@ void test_fixed_types()
 
     auto protoc_encoded = protoc_encode_fixed_types(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::FixedTypes litepb_decoded;
+    litepb_gen::litepb::test::interop::FixedTypes litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_UINT32(0xABCDEF00, litepb_decoded.v_fixed32);
@@ -202,7 +202,7 @@ void test_fixed_types()
 
 void test_repeated_fields()
 {
-    litepb::test::interop::RepeatedFields litepb_msg;
+    litepb_gen::litepb::test::interop::RepeatedFields litepb_msg;
     litepb_msg.packed_ints = { 1, 2, 3, 4, 5 };
     litepb_msg.strings     = { "hello", "world", "test" };
 
@@ -225,7 +225,7 @@ void test_repeated_fields()
 
     auto protoc_encoded = protoc_encode_repeated_fields(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::RepeatedFields litepb_decoded;
+    litepb_gen::litepb::test::interop::RepeatedFields litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_size_t(3, litepb_decoded.packed_ints.size());
@@ -238,7 +238,7 @@ void test_repeated_fields()
 
 void test_map_field()
 {
-    litepb::test::interop::MapField litepb_msg;
+    litepb_gen::litepb::test::interop::MapField litepb_msg;
     litepb_msg.items["key1"] = 100;
     litepb_msg.items["key2"] = 200;
     litepb_msg.items["key3"] = 300;
@@ -260,7 +260,7 @@ void test_map_field()
 
     auto protoc_encoded = protoc_encode_map_field(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::MapField litepb_decoded;
+    litepb_gen::litepb::test::interop::MapField litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_size_t(2, litepb_decoded.items.size());
@@ -278,7 +278,7 @@ void test_map_field()
 
 void test_outer_nested()
 {
-    litepb::test::interop::Outer litepb_msg;
+    litepb_gen::litepb::test::interop::Outer litepb_msg;
     litepb_msg.inner.value = 42;
     litepb_msg.name        = "outer_name";
 
@@ -297,7 +297,7 @@ void test_outer_nested()
 
     auto protoc_encoded = protoc_encode_outer(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::Outer litepb_decoded;
+    litepb_gen::litepb::test::interop::Outer litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_EQUAL_INT32(123, litepb_decoded.inner.value);
@@ -314,7 +314,7 @@ void test_outer_nested()
 
 void test_oneof_int()
 {
-    litepb::test::interop::OneofTest litepb_msg;
+    litepb_gen::litepb::test::interop::OneofTest litepb_msg;
     litepb_msg.choice = int32_t(42);
 
     litepb::BufferOutputStream stream;
@@ -332,7 +332,7 @@ void test_oneof_int()
 
     auto protoc_encoded = protoc_encode_oneof_test(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::OneofTest litepb_decoded;
+    litepb_gen::litepb::test::interop::OneofTest litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_TRUE(std::holds_alternative<int32_t>(litepb_decoded.choice));
@@ -349,7 +349,7 @@ void test_oneof_int()
 
 void test_oneof_string()
 {
-    litepb::test::interop::OneofTest litepb_msg;
+    litepb_gen::litepb::test::interop::OneofTest litepb_msg;
     litepb_msg.choice = std::string("test_string");
 
     litepb::BufferOutputStream stream;
@@ -367,7 +367,7 @@ void test_oneof_string()
 
     auto protoc_encoded = protoc_encode_oneof_test(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::OneofTest litepb_decoded;
+    litepb_gen::litepb::test::interop::OneofTest litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
     TEST_ASSERT_TRUE(std::holds_alternative<std::string>(litepb_decoded.choice));
@@ -384,8 +384,8 @@ void test_oneof_string()
 
 void test_enum()
 {
-    litepb::test::interop::EnumTest litepb_msg;
-    litepb_msg.value = litepb::test::interop::TestEnum::FIRST;
+    litepb_gen::litepb::test::interop::EnumTest litepb_msg;
+    litepb_msg.value = litepb_gen::litepb::test::interop::TestEnum::FIRST;
 
     litepb::BufferOutputStream stream;
     TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
@@ -400,10 +400,10 @@ void test_enum()
 
     auto protoc_encoded = protoc_encode_enum_test(encode_data);
     litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
-    litepb::test::interop::EnumTest litepb_decoded;
+    litepb_gen::litepb::test::interop::EnumTest litepb_decoded;
     TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
 
-    TEST_ASSERT_EQUAL_INT32(litepb::test::interop::TestEnum::SECOND, litepb_decoded.value);
+    TEST_ASSERT_EQUAL_INT32(litepb_gen::litepb::test::interop::TestEnum::SECOND, litepb_decoded.value);
 
     EnumTestData binary_check_data;
     binary_check_data.value = 1;
