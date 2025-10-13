@@ -66,14 +66,7 @@ print(f"[litepb] Generator   : {GEN}")
 # Read options
 custom_litepb_protos = env.GetProjectOption("custom_litepb_protos", "").split()
 custom_litepb_include_dirs = env.GetProjectOption("custom_litepb_include_dirs", "").split()
-custom_litepb_use_rpc = env.GetProjectOption("custom_litepb_use_rpc", False)
 ################################################################################
-
-# Add mandatory project proto/ include path
-litepb_proto_root = LITEPB_ROOT / "proto"
-if not litepb_proto_root.exists():
-    print(f"[litepb] ERROR: Missing required directory: {litepb_proto_root}")
-    Exit(1)
 
 # Expand glob patterns in custom_litepb_protos (supports **, *.proto, etc.)
 proto_files = []
