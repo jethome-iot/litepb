@@ -64,3 +64,67 @@ enum TestEnum {
 message EnumTest {
   TestEnum value = 1;
 }
+
+// Proto3 explicit optional fields
+message OptionalFields {
+  optional int32 opt_int32 = 1;
+  optional string opt_string = 2;
+  optional bool opt_bool = 3;
+}
+
+// Empty message (edge case)
+message EmptyMessage {
+}
+
+// Unpacked repeated fields
+message UnpackedRepeated {
+  repeated int32 unpacked_ints = 1 [packed=false];
+  repeated float unpacked_floats = 2 [packed=false];
+}
+
+// Different map types
+message DifferentMaps {
+  map<int32, string> int_to_string = 1;
+  map<string, string> string_to_string = 2;
+  map<int64, int64> int_to_int = 3;
+}
+
+// Repeated messages
+message Item {
+  int32 id = 1;
+  string name = 2;
+}
+
+message RepeatedMessages {
+  repeated Item items = 1;
+}
+
+// Nested enum
+message NestedEnumTest {
+  enum Status {
+    UNKNOWN_STATUS = 0;
+    ACTIVE = 1;
+    INACTIVE = 2;
+  }
+  Status status = 1;
+  int32 code = 2;
+}
+
+// Large field numbers (test varint encoding)
+message LargeFieldNumbers {
+  int32 field_1 = 1;
+  int32 field_100 = 100;
+  int32 field_1000 = 1000;
+  int32 field_10000 = 10000;
+}
+
+// Unknown fields test - newer version with extra field
+message UnknownFieldsNew {
+  int32 known_field = 1;
+  string extra_field = 2;  // This will be unknown to the old version
+}
+
+// Unknown fields test - older version without extra field
+message UnknownFieldsOld {
+  int32 known_field = 1;
+}
