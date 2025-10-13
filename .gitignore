@@ -36,6 +36,6 @@ tmp/
 attached_assets/
 
 # ESP-IDF
-CMakeLists.txt
+/CMakeLists.txt
 cpp/src/CMakeLists.txt
 sdkconfig.*
