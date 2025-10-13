@@ -49,7 +49,7 @@ Communication style: Simple, everyday language
   - See existing scripts in `scripts/*.sh` for examples
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 - Use `#pragma once` at the top of all C++ header files instead of traditional include guards - this is simpler, less error-prone, and supported by all modern compilers
-- Run tests after each build: 1) `pio test` 2) `scripts/run_interop_tests.sh` 3) `scripts/run_platformio_examples.sh` 4) `scripts/run_cmake_examples.sh`
+- Run tests after each build: 1) `pio test` 2) `scripts/run_interop_tests.sh` 3) `scripts/run_platformio_examples.sh` (builds and runs examples) 4) `scripts/run_cmake_examples.sh` (builds and runs examples)
 
 ## System Architecture
 - **Build System**: Supports both PlatformIO (for embedded development) and CMake (for general C++ projects). PlatformIO uses centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include). CMake configuration in `cmake/CMakeLists.txt` builds LitePB as a static library. Both integrate with the Python-based code generator for Protocol Buffer files.

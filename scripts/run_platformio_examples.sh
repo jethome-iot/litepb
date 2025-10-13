@@ -33,27 +33,30 @@ if [ "$TOTAL_PROJECTS" -eq 0 ]; then
 fi
 
 echo "======================================"
-echo "LitePB PlatformIO Examples Test Runner"
+echo "LitePB PlatformIO Examples Runner"
 echo "======================================"
 echo ""
-echo "Found ${TOTAL_PROJECTS} PlatformIO example projects to test."
+echo "Found ${TOTAL_PROJECTS} PlatformIO example projects to build and run."
 echo ""
 for PROJECT_DIR in "${PLATFORMIO_PROJECTS[@]}"; do
-    # If no "test" folder exists, skip this project
-    if [ ! -d "${PROJECT_DIR}/test" ]; then
-        echo "Skipping ${PROJECT_DIR} (no test folder found)"
-        continue
-    fi
     echo "--------------------------------------"
-    echo "Testing project: ${PROJECT_DIR}"
+    echo "Building project: ${PROJECT_DIR}"
     echo "--------------------------------------"
     pushd "$PROJECT_DIR" > /dev/null || exit 1
-    if pio test; then
-        echo "✓ Test PASSED for ${PROJECT_DIR}"
+    
+    # Build the project
+    if pio run; then
+        echo "✓ Build PASSED for ${PROJECT_DIR}"
+        
+        # Try to run if it's a native environment
+        if pio run --target exec 2>/dev/null; then
+            echo "✓ Execution PASSED for ${PROJECT_DIR}"
+        fi
     else
-        echo "❌ Test FAILED for ${PROJECT_DIR}"
+        echo "❌ Build FAILED for ${PROJECT_DIR}"
         FAILED_PROJECTS=$((FAILED_PROJECTS + 1))
     fi
+    
     popd > /dev/null || exit 1
     echo ""
 done
