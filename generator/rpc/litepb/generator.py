@@ -9,9 +9,9 @@ from typing import List
 from jinja2 import Environment, FileSystemLoader
 from google.protobuf import descriptor_pb2 as pb2
 
-from generator.rpc.base import RpcGenerator
-from generator.core.proto_parser import ProtoParser
-from generator.core.rpc_options import CallDirection
+from ..base import RpcGenerator
+from ...core.proto_parser import ProtoParser
+from ...core.rpc_options import CallDirection
 
 
 class LitePBRpcGenerator(RpcGenerator):
@@ -97,10 +97,6 @@ class LitePBRpcGenerator(RpcGenerator):
         for method in service.method:
             method_options = self.parser.extract_method_options(method)
             
-            # For backward compatibility: fire_and_forget implies server_to_client event
-            if method_options.fire_and_forget and method_options.direction == CallDirection.CLIENT_TO_SERVER:
-                method_options.direction = CallDirection.SERVER_TO_CLIENT
-                method_options.is_event = True
             
             if method_options.direction == CallDirection.CLIENT_TO_SERVER:
                 if method_options.is_event:
@@ -155,7 +151,7 @@ class LitePBRpcGenerator(RpcGenerator):
         if server_to_client_events or bidirectional_methods:
             lines.append('    // Concrete event emitters')
             for method, options in server_to_client_events + bidirectional_methods:
-                if options.is_event or options.fire_and_forget:
+                if options.is_event:
                     method_name = method.name
                     input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                     
@@ -181,9 +177,8 @@ class LitePBRpcGenerator(RpcGenerator):
             if options.is_event:
                 # Register event handler
                 lines.append(f'        // Register event handler for {method_name}')
-                lines.append(f'        channel_.on_event_with_addr<{input_type}>({service_id}, {method_id},')
-                lines.append(f'            [this](uint64_t src_addr, const {input_type}& event) {{')
-                lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                lines.append(f'        channel_.on_event<{input_type}>({service_id}, {method_id},')
+                lines.append(f'            [this](const {input_type}& event) {{')
                 lines.append(f'                this->on{method_name}(event);')
                 lines.append('            });')
             else:
@@ -191,18 +186,16 @@ class LitePBRpcGenerator(RpcGenerator):
                 lines.append(f'        // Register RPC handler for {method_name}')
                 if self._is_void_type(method.output_type):
                     # Void return type - need to wrap in Result
-                    lines.append(f'        channel_.on_internal<{input_type}, google::protobuf::Empty>(')
+                    lines.append(f'        channel_.on<{input_type}, google::protobuf::Empty>(')
                     lines.append(f'            {service_id}, {method_id},')
-                    lines.append(f'            [this](uint64_t src_addr, const {input_type}& request) {{')
-                    lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                    lines.append(f'            [this](const {input_type}& request) {{')
                     lines.append(f'                this->handle{method_name}(request);')
                     lines.append(f'                return litepb::Result<google::protobuf::Empty>{{}};')
                     lines.append('            });')
                 else:
-                    lines.append(f'        channel_.on_internal<{input_type}, {output_type}>(')
+                    lines.append(f'        channel_.on<{input_type}, {output_type}>(')
                     lines.append(f'            {service_id}, {method_id},')
-                    lines.append(f'            [this](uint64_t src_addr, const {input_type}& request) {{')
-                    lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                    lines.append(f'            [this](const {input_type}& request) {{')
                     lines.append(f'                return this->handle{method_name}(request);')
                     lines.append('            });')
             lines.append('')
@@ -241,7 +234,7 @@ class LitePBRpcGenerator(RpcGenerator):
                         lines.append(f'    void {method_name}(const {input_type}& request,')
                         lines.append(f'                      std::function<void(bool success)> callback,')
                         lines.append(f'                      uint32_t timeout_ms = {default_timeout}) {{')
-                        lines.append(f'        channel_.call_internal<{input_type}, google::protobuf::Empty>(')
+                        lines.append(f'        channel_.call<{input_type}, google::protobuf::Empty>(')
                         lines.append(f'            {service_id}, {method_id}, request,')
                         lines.append(f'            [callback](const litepb::Result<google::protobuf::Empty>& result) {{')
                         lines.append(f'                callback(result.error.code == litepb::RpcError::OK);')
@@ -250,7 +243,7 @@ class LitePBRpcGenerator(RpcGenerator):
                         lines.append(f'    void {method_name}(const {input_type}& request,')
                         lines.append(f'                      std::function<void(const litepb::Result<{output_type}>&)> callback,')
                         lines.append(f'                      uint32_t timeout_ms = {default_timeout}) {{')
-                        lines.append(f'        channel_.call_internal<{input_type}, {output_type}>(')
+                        lines.append(f'        channel_.call<{input_type}, {output_type}>(')
                         lines.append(f'            {service_id}, {method_id}, request, callback, timeout_ms);')
                     lines.append('    }')
                     lines.append('')
@@ -272,7 +265,7 @@ class LitePBRpcGenerator(RpcGenerator):
         if server_to_client_events or bidirectional_methods:
             lines.append('    // Virtual event handlers - can be overridden by derived class')
             for method, options in server_to_client_events + bidirectional_methods:
-                if options.is_event or options.fire_and_forget:
+                if options.is_event:
                     method_name = method.name
                     input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                     
@@ -289,15 +282,14 @@ class LitePBRpcGenerator(RpcGenerator):
         
         # Register event handlers
         for method, options in server_to_client_events + bidirectional_methods:
-            if options.is_event or options.fire_and_forget:
+            if options.is_event:
                 method_name = method.name
                 method_id = options.method_id
                 input_type = self._get_qualified_type_name(method.input_type, namespace_prefix)
                 
                 lines.append(f'        // Register event handler for {method_name}')
-                lines.append(f'        channel_.on_event_with_addr<{input_type}>({service_id}, {method_id},')
-                lines.append(f'            [this](uint64_t src_addr, const {input_type}& event) {{')
-                lines.append(f'                (void)src_addr; // Simplified API hides addressing')
+                lines.append(f'        channel_.on_event<{input_type}>({service_id}, {method_id},')
+                lines.append(f'            [this](const {input_type}& event) {{')
                 lines.append(f'                this->on{method_name}(event);')
                 lines.append('            });')
                 lines.append('')

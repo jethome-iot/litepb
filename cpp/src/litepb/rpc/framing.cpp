@@ -9,7 +9,7 @@ namespace litepb {
 
 MessageIdGenerator::MessageIdGenerator() : counter_(1) {}
 
-uint16_t MessageIdGenerator::generate_for(uint64_t local_addr, uint64_t dst_addr)
+uint16_t MessageIdGenerator::generate()
 {
     uint16_t id = counter_;
     counter_++;
@@ -21,7 +21,6 @@ uint16_t MessageIdGenerator::generate_for(uint64_t local_addr, uint64_t dst_addr
 
 bool encode_transport_frame(const TransportFrame& frame, OutputStream& output, bool is_stream_transport)
 {
-    // Transport handles all addressing - we only encode the RpcMessage payload
     // Format for stream: [payload_len:varint][payload]
     // Format for packet: [payload]
 
@@ -43,7 +42,6 @@ bool encode_transport_frame(const TransportFrame& frame, OutputStream& output, b
 
 bool decode_transport_frame(InputStream& input, TransportFrame& frame, bool is_stream_transport)
 {
-    // Transport handles all addressing - we only decode the RpcMessage payload
     // Format for stream: [payload_len:varint][payload]
     // Format for packet: [payload]
 

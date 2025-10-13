@@ -14,15 +14,11 @@ public:
 
     void connect_to_peer(LoopbackTransport* peer) { peer_ = peer; }
 
-    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) override
+    bool send(const uint8_t* data, size_t len) override
     {
         if (!peer_) {
             return false;
         }
-
-        // Store metadata for recv (msg_id now in RpcMessage)
-        peer_->last_src_addr_ = src_addr;
-        peer_->last_dst_addr_ = dst_addr;
 
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
@@ -30,7 +26,7 @@ public:
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) override
+    size_t recv(uint8_t* buffer, size_t max_len) override
     {
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
@@ -38,18 +34,12 @@ public:
             rx_queue_.pop();
         }
 
-        // Return stored metadata (msg_id now in RpcMessage)
-        src_addr = last_src_addr_;
-        dst_addr = last_dst_addr_;
-
         return count;
     }
 
     bool available() override { return !rx_queue_.empty(); }
 
     std::queue<uint8_t> rx_queue_;
-    uint64_t last_src_addr_ = 0;
-    uint64_t last_dst_addr_ = 0;
 
 private:
     LoopbackTransport* peer_;
@@ -310,26 +300,24 @@ void test_bidirectional_no_id_collision()
     transport_a.connect_to_peer(&transport_b);
     transport_b.connect_to_peer(&transport_a);
 
-    litepb::RpcChannel channel_a(transport_a, 0x02);
-    litepb::RpcChannel channel_b(transport_b, 0x04);
+    litepb::RpcChannel channel_a(transport_a);
+    litepb::RpcChannel channel_b(transport_b);
 
     bool a_response_received = false;
     bool b_response_received = false;
     int32_t a_response_value = 0;
     int32_t b_response_value = 0;
 
-    channel_a.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    channel_a.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value * 2;
             result.error.code  = litepb::RpcError::OK;
             return result;
         });
 
-    channel_b.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    channel_b.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value * 3;
             result.error.code  = litepb::RpcError::OK;
@@ -338,7 +326,7 @@ void test_bidirectional_no_id_collision()
 
     SimpleMessage req_a_to_b;
     req_a_to_b.value = 10;
-    channel_a.call_internal<SimpleMessage, SimpleMessage>(1, 1, req_a_to_b, [&](const litepb::Result<SimpleMessage>& result) {
+    channel_a.call<SimpleMessage, SimpleMessage>(1, 1, req_a_to_b, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         a_response_received = true;
         a_response_value    = result.value.value;
@@ -354,7 +342,7 @@ void test_bidirectional_no_id_collision()
 
     SimpleMessage req_b_to_a;
     req_b_to_a.value = 20;
-    channel_b.call_internal<SimpleMessage, SimpleMessage>(1, 1, req_b_to_a, [&](const litepb::Result<SimpleMessage>& result) {
+    channel_b.call<SimpleMessage, SimpleMessage>(1, 1, req_b_to_a, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         b_response_received = true;
         b_response_value    = result.value.value;
@@ -391,58 +379,53 @@ void test_multi_node_communication()
     t3_to_4.connect_to_peer(&t4_to_3);
     t4_to_3.connect_to_peer(&t3_to_4);
 
-    litepb::RpcChannel chan1_to_2(t1_to_2, 0x01);
-    litepb::RpcChannel chan1_to_3(t1_to_3, 0x01);
-    litepb::RpcChannel chan1_to_4(t1_to_4, 0x01);
-    litepb::RpcChannel chan2_to_1(t2_to_1, 0x02);
-    litepb::RpcChannel chan2_to_3(t2_to_3, 0x02);
-    litepb::RpcChannel chan2_to_4(t2_to_4, 0x02);
-    litepb::RpcChannel chan3_to_1(t3_to_1, 0x03);
-    litepb::RpcChannel chan3_to_2(t3_to_2, 0x03);
-    litepb::RpcChannel chan3_to_4(t3_to_4, 0x03);
-    litepb::RpcChannel chan4_to_1(t4_to_1, 0x04);
-    litepb::RpcChannel chan4_to_2(t4_to_2, 0x04);
-    litepb::RpcChannel chan4_to_3(t4_to_3, 0x04);
+    litepb::RpcChannel chan1_to_2(t1_to_2);
+    litepb::RpcChannel chan1_to_3(t1_to_3);
+    litepb::RpcChannel chan1_to_4(t1_to_4);
+    litepb::RpcChannel chan2_to_1(t2_to_1);
+    litepb::RpcChannel chan2_to_3(t2_to_3);
+    litepb::RpcChannel chan2_to_4(t2_to_4);
+    litepb::RpcChannel chan3_to_1(t3_to_1);
+    litepb::RpcChannel chan3_to_2(t3_to_2);
+    litepb::RpcChannel chan3_to_4(t3_to_4);
+    litepb::RpcChannel chan4_to_1(t4_to_1);
+    litepb::RpcChannel chan4_to_2(t4_to_2);
+    litepb::RpcChannel chan4_to_3(t4_to_3);
 
-    chan2_to_1.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    chan2_to_1.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value + 200;
             result.error.code  = litepb::RpcError::OK;
             return result;
         });
 
-    chan3_to_1.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    chan3_to_1.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value + 300;
             result.error.code  = litepb::RpcError::OK;
             return result;
         });
 
-    chan4_to_1.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    chan4_to_1.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value + 400;
             result.error.code  = litepb::RpcError::OK;
             return result;
         });
 
-    chan3_to_2.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    chan3_to_2.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value + 320;
             result.error.code  = litepb::RpcError::OK;
             return result;
         });
 
-    chan4_to_2.on_internal<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+    chan4_to_2.on<SimpleMessage, SimpleMessage>(
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.value.value = req.value + 420;
             result.error.code  = litepb::RpcError::OK;
@@ -456,7 +439,7 @@ void test_multi_node_communication()
 
     SimpleMessage msg1;
     msg1.value = 10;
-    chan1_to_2.call_internal<SimpleMessage, SimpleMessage>(1, 1, msg1, [&](const litepb::Result<SimpleMessage>& result) {
+    chan1_to_2.call<SimpleMessage, SimpleMessage>(1, 1, msg1, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         resp_1_to_2 = true;
         val_1_to_2  = result.value.value;
@@ -464,7 +447,7 @@ void test_multi_node_communication()
 
     SimpleMessage msg2;
     msg2.value = 20;
-    chan1_to_3.call_internal<SimpleMessage, SimpleMessage>(1, 1, msg2, [&](const litepb::Result<SimpleMessage>& result) {
+    chan1_to_3.call<SimpleMessage, SimpleMessage>(1, 1, msg2, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         resp_1_to_3 = true;
         val_1_to_3  = result.value.value;
@@ -472,7 +455,7 @@ void test_multi_node_communication()
 
     SimpleMessage msg3;
     msg3.value = 30;
-    chan1_to_4.call_internal<SimpleMessage, SimpleMessage>(1, 1, msg3, [&](const litepb::Result<SimpleMessage>& result) {
+    chan1_to_4.call<SimpleMessage, SimpleMessage>(1, 1, msg3, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         resp_1_to_4 = true;
         val_1_to_4  = result.value.value;
@@ -480,7 +463,7 @@ void test_multi_node_communication()
 
     SimpleMessage msg4;
     msg4.value = 40;
-    chan2_to_3.call_internal<SimpleMessage, SimpleMessage>(1, 1, msg4, [&](const litepb::Result<SimpleMessage>& result) {
+    chan2_to_3.call<SimpleMessage, SimpleMessage>(1, 1, msg4, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         resp_2_to_3 = true;
         val_2_to_3  = result.value.value;
@@ -488,7 +471,7 @@ void test_multi_node_communication()
 
     SimpleMessage msg5;
     msg5.value = 50;
-    chan2_to_4.call_internal<SimpleMessage, SimpleMessage>(1, 1, msg5, [&](const litepb::Result<SimpleMessage>& result) {
+    chan2_to_4.call<SimpleMessage, SimpleMessage>(1, 1, msg5, [&](const litepb::Result<SimpleMessage>& result) {
         TEST_ASSERT_TRUE(result.ok());
         resp_2_to_4 = true;
         val_2_to_4  = result.value.value;
@@ -585,7 +568,7 @@ void test_decode_varint_5byte_limit_exceeded()
 void test_rpc_channel_buffer_resize_overflow()
 {
     LoopbackTransport transport;
-    litepb::RpcChannel channel(transport, 0x01);
+    litepb::RpcChannel channel(transport);
 
     for (size_t i = 0; i < 2000; ++i) {
         transport.rx_queue_.push(0xFF);
@@ -616,7 +599,7 @@ void test_transport_recv_returns_zero()
     };
 
     ZeroRecvTransport transport;
-    litepb::RpcChannel channel(transport, 0x01);
+    litepb::RpcChannel channel(transport);
     channel.process();
 
     TEST_ASSERT_GREATER_THAN_INT(0, transport.recv_count);

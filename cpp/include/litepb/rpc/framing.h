@@ -31,7 +31,7 @@ class InputStream;
  * MessageIdGenerator creates unique 16-bit message IDs used to match
  * RPC responses with their corresponding requests. It uses a simple
  * incrementing counter that wraps around, avoiding ID 0 which is
- * reserved for fire-and-forget events.
+ * reserved for events.
  *
  * @note Thread safety is not provided - use one generator per thread
  */
@@ -48,11 +48,9 @@ public:
      * Generates a non-zero message ID for request/response correlation.
      * The ID is unique within the scope of this generator instance.
      *
-     * @param local_addr Source address (for future use in ID generation)
-     * @param dst_addr Destination address (for future use in ID generation)
      * @return Unique non-zero message ID
      */
-    uint16_t generate_for(uint64_t local_addr, uint64_t dst_addr);
+    uint16_t generate();
 
 private:
     uint16_t counter_; ///< Internal counter for ID generation
@@ -62,8 +60,7 @@ private:
  * @brief Transport frame structure
  *
  * Represents a frame ready for transmission over the transport layer.
- * Contains only the serialized RpcMessage payload - addressing and
- * message ID are handled by the transport layer itself.
+ * Contains only the serialized RpcMessage payload.
  */
 struct TransportFrame {
     std::vector<uint8_t> payload; ///< Serialized RpcMessage protobuf data

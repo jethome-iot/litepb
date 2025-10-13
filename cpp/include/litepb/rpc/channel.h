@@ -6,7 +6,6 @@
 #include "litepb/core/proto_writer.h"
 #include "litepb/core/streams.h"
 #include "litepb/litepb.h"
-#include "litepb/rpc/addressing.h"
 #include "litepb/rpc/error.h"
 #include "litepb/rpc/framing.h"
 #include "litepb/rpc/transport.h"
@@ -26,13 +25,12 @@ static_assert(LITEPB_RPC_INITIAL_BUFFER_SIZE > 0, "LITEPB_RPC_INITIAL_BUFFER_SIZ
 namespace litepb {
 
 struct PendingKey {
-    uint64_t peer_addr;
     uint16_t service_id;
     uint16_t msg_id;
 
     bool operator==(const PendingKey & other) const
     {
-        return peer_addr == other.peer_addr && service_id == other.service_id && msg_id == other.msg_id;
+        return service_id == other.service_id && msg_id == other.msg_id;
     }
 };
 
@@ -43,7 +41,7 @@ template <>
 struct hash<litepb::PendingKey> {
     size_t operator()(const litepb::PendingKey & key) const noexcept
     {
-        return std::hash<uint64_t>()(key.peer_addr) ^ (std::hash<uint16_t>()(key.service_id) << 1) ^ (std::hash<uint16_t>()(key.msg_id) << 2);
+        return (std::hash<uint16_t>()(key.service_id) << 16) ^ std::hash<uint16_t>()(key.msg_id);
     }
 };
 
@@ -66,64 +64,32 @@ uint32_t get_current_time_ms();
 
 class RpcChannel {
 public:
-    RpcChannel(Transport & transport, uint64_t local_address, uint32_t default_timeout_ms = 5000);
+    RpcChannel(Transport & transport, uint32_t default_timeout_ms = 5000);
 
     void process();
 
-    // ===== Simplified API (primary interface - no addressing) =====
+    // ===== Primary API (simplified, no addressing) =====
     
-    // Simplified RPC call without addressing
+    // RPC call
     template <typename Req, typename Resp>
     bool call(uint16_t service_id, uint32_t method_id, const Req & request,
-        std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms = 0) {
-        return call_internal(service_id, method_id, request, callback, timeout_ms, 0);
-    }
+        std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms = 0);
 
-    // Simplified event send without addressing
+    // Send event (fire-and-forget)
     template <typename Req>
-    bool send_event(uint16_t service_id, uint32_t method_id, const Req & request) {
-        return send_event(service_id, method_id, request, 0);
-    }
+    bool send_event(uint16_t service_id, uint32_t method_id, const Req & request);
 
-    // Simplified RPC handler registration without addressing
+    // Register RPC handler
     template <typename Req, typename Resp>
-    void on(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(const Req &)> handler) {
-        on_internal(service_id, method_id, [handler](uint64_t src_addr, const Req & req) -> Result<Resp> {
-            (void)src_addr; // Simplified API hides addressing
-            return handler(req);
-        });
-    }
+    void on(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(const Req &)> handler);
 
-    // Simplified event handler registration without addressing
+    // Register event handler
     template <typename Req>
-    void on_event(uint16_t service_id, uint32_t method_id, std::function<void(const Req &)> handler) {
-        std::function<void(uint64_t, const Req &)> wrapper = [handler](uint64_t src_addr, const Req & req) {
-            (void)src_addr; // Simplified API hides addressing
-            handler(req);
-        };
-        on_event_with_addr<Req>(service_id, method_id, wrapper);
-    }
-
-    // ===== Low-level API (backward compatibility - with addressing) =====
-    
-    template <typename Req, typename Resp>
-    bool call_internal(uint16_t service_id, uint32_t method_id, const Req & request,
-        std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms = 0, uint64_t dst_addr = 0);
-
-    template <typename Req>
-    bool send_event(uint16_t service_id, uint32_t method_id, const Req & request, uint64_t dst_addr);
-
-    template <typename Req, typename Resp>
-    void on_internal(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(uint64_t, const Req &)> handler);
-
-    // Renamed to avoid conflict with simplified version
-    template <typename Req>
-    void on_event_with_addr(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req &)> handler);
+    void on_event(uint16_t service_id, uint32_t method_id, std::function<void(const Req &)> handler);
 
 private:
     struct PendingCall {
         uint16_t msg_id;
-        uint64_t dst_addr;
         uint32_t deadline_ms;
         std::function<void(const rpc::RpcResponse &)> callback;
     };
@@ -132,11 +98,10 @@ private:
     MessageIdGenerator id_gen_;
     bool is_stream_transport_;
     uint32_t default_timeout_ms_;
-    uint64_t local_address_;
 
     std::unordered_map<PendingKey, PendingCall> pending_calls_;
 
-    using HandlerFunction = std::function<void(const std::vector<uint8_t> &, uint16_t, uint64_t)>;
+    using HandlerFunction = std::function<void(const std::vector<uint8_t> &, uint16_t)>;
     using HandlerKey = std::pair<uint16_t, uint32_t>; // (service_id, method_id)
     std::unordered_map<HandlerKey, HandlerFunction> handlers_;
 
@@ -145,14 +110,14 @@ private:
 
     void check_timeouts();
     void process_incoming_messages();
-    void handle_message(const TransportFrame & frame, uint64_t src_addr, uint64_t dst_addr);
+    void handle_message(const TransportFrame & frame);
 };
 
 template <typename Req, typename Resp>
-bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Req & request,
-    std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms, uint64_t dst_addr)
+bool RpcChannel::call(uint16_t service_id, uint32_t method_id, const Req & request,
+    std::function<void(const Result<Resp> &)> callback, uint32_t timeout_ms)
 {
-    uint16_t msg_id = id_gen_.generate_for(local_address_, dst_addr);
+    uint16_t msg_id = id_gen_.generate();
 
     // Serialize request
     BufferOutputStream request_stream;
@@ -169,7 +134,7 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
     rpc_msg.service_id = service_id;
     rpc_msg.method_id = method_id;
     rpc_msg.message_type = rpc::RpcMessage::MessageType::REQUEST;
-    rpc_msg.msg_id = msg_id; // Message ID moved to protocol buffer
+    rpc_msg.msg_id = msg_id;
     rpc_msg.payload = std::vector<uint8_t>(request_stream.data(), request_stream.data() + request_stream.size());
 
     // Serialize RPC message
@@ -181,7 +146,7 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
         return false;
     }
 
-    // Create transport frame (only payload, addressing handled by transport)
+    // Create transport frame
     TransportFrame frame;
     frame.payload = rpc_payload;
 
@@ -194,7 +159,7 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
         return false;
     }
 
-    if (!transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr)) {
+    if (!transport_.send(out_stream.data(), out_stream.size())) {
         Result<Resp> error_result;
         error_result.error.code = RpcError::TRANSPORT_ERROR;
         callback(error_result);
@@ -203,49 +168,52 @@ bool RpcChannel::call_internal(uint16_t service_id, uint32_t method_id, const Re
 
     // Store pending call
     uint32_t actual_timeout = (timeout_ms == 0) ? default_timeout_ms_ : timeout_ms;
-    uint64_t peer_addr = (dst_addr == RPC_ADDRESS_WILDCARD || dst_addr == RPC_ADDRESS_BROADCAST) ? RPC_ADDRESS_WILDCARD : dst_addr;
 
-    pending_calls_[PendingKey { peer_addr, service_id, msg_id }] = PendingCall { msg_id, peer_addr, get_current_time_ms() + actual_timeout, [callback](const rpc::RpcResponse & response) {
-                                                                                    Result<Resp> result;
+    pending_calls_[PendingKey { service_id, msg_id }] = PendingCall { 
+        msg_id, 
+        get_current_time_ms() + actual_timeout, 
+        [callback](const rpc::RpcResponse & response) {
+            Result<Resp> result;
 
-                                                                                    // Convert RPC error code to our error code
-                                                                                    switch (response.error_code) {
-                                                                                    case rpc::RpcResponse::RpcErrorCode::OK:
-                                                                                        result.error.code = RpcError::OK;
-                                                                                        break;
-                                                                                    case rpc::RpcResponse::RpcErrorCode::TIMEOUT:
-                                                                                        result.error.code = RpcError::TIMEOUT;
-                                                                                        break;
-                                                                                    case rpc::RpcResponse::RpcErrorCode::PARSE_ERROR:
-                                                                                        result.error.code = RpcError::PARSE_ERROR;
-                                                                                        break;
-                                                                                    case rpc::RpcResponse::RpcErrorCode::TRANSPORT_ERROR:
-                                                                                        result.error.code = RpcError::TRANSPORT_ERROR;
-                                                                                        break;
-                                                                                    case rpc::RpcResponse::RpcErrorCode::HANDLER_NOT_FOUND:
-                                                                                        result.error.code = RpcError::HANDLER_NOT_FOUND;
-                                                                                        break;
-                                                                                    default:
-                                                                                        result.error.code = RpcError::UNKNOWN;
-                                                                                        break;
-                                                                                    }
+            // Convert RPC error code to our error code
+            switch (response.error_code) {
+            case rpc::RpcResponse::RpcErrorCode::OK:
+                result.error.code = RpcError::OK;
+                break;
+            case rpc::RpcResponse::RpcErrorCode::TIMEOUT:
+                result.error.code = RpcError::TIMEOUT;
+                break;
+            case rpc::RpcResponse::RpcErrorCode::PARSE_ERROR:
+                result.error.code = RpcError::PARSE_ERROR;
+                break;
+            case rpc::RpcResponse::RpcErrorCode::TRANSPORT_ERROR:
+                result.error.code = RpcError::TRANSPORT_ERROR;
+                break;
+            case rpc::RpcResponse::RpcErrorCode::HANDLER_NOT_FOUND:
+                result.error.code = RpcError::HANDLER_NOT_FOUND;
+                break;
+            default:
+                result.error.code = RpcError::UNKNOWN;
+                break;
+            }
 
-                                                                                    // Parse response if no error
-                                                                                    if (result.error.code == RpcError::OK && !response.response_data.empty()) {
-                                                                                        BufferInputStream resp_stream(response.response_data.data(), response.response_data.size());
-                                                                                        if (!litepb::parse(result.value, resp_stream)) {
-                                                                                            result.error.code = RpcError::PARSE_ERROR;
-                                                                                        }
-                                                                                    }
+            // Parse response if no error
+            if (result.error.code == RpcError::OK && !response.response_data.empty()) {
+                BufferInputStream resp_stream(response.response_data.data(), response.response_data.size());
+                if (!litepb::parse(result.value, resp_stream)) {
+                    result.error.code = RpcError::PARSE_ERROR;
+                }
+            }
 
-                                                                                    callback(result);
-                                                                                } };
+            callback(result);
+        }
+    };
 
     return true;
 }
 
 template <typename Req>
-bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req & request, uint64_t dst_addr)
+bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req & request)
 {
     // Events use msg_id = 0 (no response expected)
     uint16_t msg_id = 0;
@@ -258,7 +226,7 @@ bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req &
 
     // Create RPC message
     rpc::RpcMessage rpc_msg;
-    rpc_msg.version = 1; // Protocol version 1
+    rpc_msg.version = 1;
     rpc_msg.service_id = service_id;
     rpc_msg.method_id = method_id;
     rpc_msg.message_type = rpc::RpcMessage::MessageType::EVENT;
@@ -271,7 +239,7 @@ bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req &
         return false;
     }
 
-    // Create transport frame (only payload, addressing handled by transport)
+    // Create transport frame
     TransportFrame frame;
     frame.payload = rpc_payload;
 
@@ -281,14 +249,14 @@ bool RpcChannel::send_event(uint16_t service_id, uint32_t method_id, const Req &
         return false;
     }
 
-    return transport_.send(out_stream.data(), out_stream.size(), local_address_, dst_addr);
+    return transport_.send(out_stream.data(), out_stream.size());
 }
 
 template <typename Req, typename Resp>
-void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(uint64_t, const Req &)> handler)
+void RpcChannel::on(uint16_t service_id, uint32_t method_id, std::function<Result<Resp>(const Req &)> handler)
 {
     handlers_[HandlerKey { service_id, method_id }] = [handler, this, service_id](const std::vector<uint8_t> & request_data,
-                                                          uint16_t msg_id, uint64_t src_addr) {
+                                                          uint16_t msg_id) {
         // Parse request
         Req request;
         BufferInputStream req_stream(request_data.data(), request_data.size());
@@ -300,9 +268,9 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
             rpc::RpcMessage rpc_msg;
             rpc_msg.version = 1;
             rpc_msg.service_id = service_id;
-            rpc_msg.method_id = 0; // Method ID not relevant for response
+            rpc_msg.method_id = 0;
             rpc_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
-            rpc_msg.msg_id = msg_id; // Include msg_id for correlation
+            rpc_msg.msg_id = msg_id;
             rpc_msg.payload = response;
 
             std::vector<uint8_t> rpc_payload;
@@ -312,14 +280,14 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
 
                 BufferOutputStream out_stream;
                 if (encode_transport_frame(frame, out_stream, is_stream_transport_)) {
-                    transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr);
+                    transport_.send(out_stream.data(), out_stream.size());
                 }
             }
             return;
         }
 
         // Call handler
-        Result<Resp> result = handler(src_addr, request);
+        Result<Resp> result = handler(request);
 
         // Create response
         rpc::RpcResponse response;
@@ -360,9 +328,9 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
         rpc::RpcMessage rpc_msg;
         rpc_msg.version = 1;
         rpc_msg.service_id = service_id;
-        rpc_msg.method_id = 0; // Method ID not relevant for response
+        rpc_msg.method_id = 0;
         rpc_msg.message_type = rpc::RpcMessage::MessageType::RESPONSE;
-        rpc_msg.msg_id = msg_id; // Include msg_id for correlation
+        rpc_msg.msg_id = msg_id;
         rpc_msg.payload = response;
 
         // Serialize and send
@@ -373,22 +341,21 @@ void RpcChannel::on_internal(uint16_t service_id, uint32_t method_id, std::funct
 
             BufferOutputStream out_stream;
             if (encode_transport_frame(frame, out_stream, is_stream_transport_)) {
-                transport_.send(out_stream.data(), out_stream.size(), local_address_, src_addr);
+                transport_.send(out_stream.data(), out_stream.size());
             }
         }
     };
 }
 
 template <typename Req>
-void RpcChannel::on_event_with_addr(uint16_t service_id, uint32_t method_id, std::function<void(uint64_t, const Req &)> handler)
+void RpcChannel::on_event(uint16_t service_id, uint32_t method_id, std::function<void(const Req &)> handler)
 {
-    handlers_[HandlerKey { service_id, method_id }] = [handler](const std::vector<uint8_t> & event_data, uint16_t msg_id,
-                                                          uint64_t src_addr) {
+    handlers_[HandlerKey { service_id, method_id }] = [handler](const std::vector<uint8_t> & event_data, uint16_t msg_id) {
         // Parse event
         Req event;
         BufferInputStream event_stream(event_data.data(), event_data.size());
         if (litepb::parse(event, event_stream)) {
-            handler(src_addr, event);
+            handler(event);
         }
         // Events don't send responses
     };

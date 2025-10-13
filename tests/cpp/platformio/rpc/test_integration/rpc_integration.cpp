@@ -20,7 +20,7 @@ public:
 
     void connect_to_peer(LoopbackTransport* peer) { peer_ = peer; }
 
-    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) override
+    bool send(const uint8_t* data, size_t len) override
     {
         if (!peer_) {
             return false;
@@ -74,7 +74,7 @@ void test_client_server_roundtrip()
     int32_t response_value = 0;
     std::string response_message;
 
-    peer_b_channel.on_internal<EchoRequest, EchoResponse>(
+    peer_b_channel.on<EchoRequest, EchoResponse>(
         1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
             (void) src_addr;
             litepb::Result<EchoResponse> result;
@@ -88,7 +88,7 @@ void test_client_server_roundtrip()
     request.value   = 42;
     request.message = "Hello, Server!";
 
-    peer_a_channel.call_internal<EchoRequest, EchoResponse>(1, 1, request, [&](const litepb::Result<EchoResponse>& result) {
+    peer_a_channel.call<EchoRequest, EchoResponse>(1, 1, request, [&](const litepb::Result<EchoResponse>& result) {
         TEST_ASSERT_TRUE(result.ok());
         response_received = true;
         response_value    = result.value.value;
@@ -121,7 +121,7 @@ void test_bidirectional_rpc()
     int32_t client_response_value = 0;
     int32_t server_response_value = 0;
 
-    peer_a_channel.on_internal<EchoRequest, EchoResponse>(
+    peer_a_channel.on<EchoRequest, EchoResponse>(
         1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
             (void) src_addr;
             litepb::Result<EchoResponse> result;
@@ -131,7 +131,7 @@ void test_bidirectional_rpc()
             return result;
         });
 
-    peer_b_channel.on_internal<EchoRequest, EchoResponse>(
+    peer_b_channel.on<EchoRequest, EchoResponse>(
         1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
             (void) src_addr;
             litepb::Result<EchoResponse> result;
@@ -145,7 +145,7 @@ void test_bidirectional_rpc()
     client_request.value   = 10;
     client_request.message = "From client";
 
-    peer_a_channel.call_internal<EchoRequest, EchoResponse>(1, 1, client_request, [&](const litepb::Result<EchoResponse>& result) {
+    peer_a_channel.call<EchoRequest, EchoResponse>(1, 1, client_request, [&](const litepb::Result<EchoResponse>& result) {
         TEST_ASSERT_TRUE(result.ok());
         client_response_received = true;
         client_response_value    = result.value.value;
@@ -163,7 +163,7 @@ void test_bidirectional_rpc()
     server_request.value   = 20;
     server_request.message = "From server";
 
-    peer_b_channel.call_internal<EchoRequest, EchoResponse>(1, 1, server_request, [&](const litepb::Result<EchoResponse>& result) {
+    peer_b_channel.call<EchoRequest, EchoResponse>(1, 1, server_request, [&](const litepb::Result<EchoResponse>& result) {
         TEST_ASSERT_TRUE(result.ok());
         server_response_received = true;
         server_response_value    = result.value.value;
@@ -196,7 +196,7 @@ void test_timeout_scenario()
     request.value   = 100;
     request.message = "Will timeout";
 
-    peer_a_channel.call_internal<EchoRequest, EchoResponse>(
+    peer_a_channel.call<EchoRequest, EchoResponse>(
         1, 1, request,
         [&](const litepb::Result<EchoResponse>& result) {
             timeout_received = true;
@@ -228,7 +228,7 @@ void test_error_propagation()
     litepb::RpcError::Code error_code = litepb::RpcError::OK;
     std::string error_message;
 
-    peer_b_channel.on_internal<EchoRequest, EchoResponse>(
+    peer_b_channel.on<EchoRequest, EchoResponse>(
         1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
             (void) src_addr;
             litepb::Result<EchoResponse> result;
@@ -249,7 +249,7 @@ void test_error_propagation()
     request.value   = -5;
     request.message = "Invalid request";
 
-    peer_a_channel.call_internal<EchoRequest, EchoResponse>(1, 1, request, [&](const litepb::Result<EchoResponse>& result) {
+    peer_a_channel.call<EchoRequest, EchoResponse>(1, 1, request, [&](const litepb::Result<EchoResponse>& result) {
         error_received = true;
         error_code     = result.error.code;
     });

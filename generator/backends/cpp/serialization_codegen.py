@@ -5,9 +5,9 @@ Serialization and deserialization code generation for C++.
 
 from typing import List, Dict
 from google.protobuf import descriptor_pb2 as pb2
-from generator.backends.cpp.type_mapper import TypeMapper
-from generator.backends.cpp.field_utils import FieldUtils
-from generator.backends.cpp.models import MapFieldInfo, OneofInfo
+from .type_mapper import TypeMapper
+from .field_utils import FieldUtils
+from .models import MapFieldInfo, OneofInfo
 
 
 class SerializationCodegen:

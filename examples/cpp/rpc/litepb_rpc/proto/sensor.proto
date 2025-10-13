@@ -49,6 +49,6 @@ service SensorService {
     }
     rpc SendAlert(AlertNotification) returns (AlertNotification) {
         option (litepb.rpc.method_id) = 3;
-        option (litepb.rpc.fire_and_forget) = true;
+        option (litepb.rpc.is_event) = true;
     }
 }

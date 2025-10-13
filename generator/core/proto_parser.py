@@ -10,7 +10,7 @@ import tempfile
 from typing import List, Dict, Optional
 from google.protobuf import descriptor_pb2 as pb2
 
-from generator.core.rpc_options import RpcMethodOptions, RpcServiceOptions, MethodOptions, ServiceOptions, CallDirection
+from .rpc_options import RpcMethodOptions, RpcServiceOptions, MethodOptions, ServiceOptions, CallDirection
 
 
 class ProtoParser:
@@ -135,21 +135,15 @@ class ProtoParser:
         
         default_timeout_ms = extensions.get(MethodOptions.DEFAULT_TIMEOUT_MS, 5000)
         method_id = extensions.get(MethodOptions.METHOD_ID, None)
-        fire_and_forget = bool(extensions.get(MethodOptions.FIRE_AND_FORGET, 0))
         
         # New options
         direction_value = extensions.get(MethodOptions.DIRECTION, 0)
         direction = CallDirection(direction_value)
         is_event = bool(extensions.get(MethodOptions.IS_EVENT, 0))
         
-        # For backward compatibility: if fire_and_forget is true, treat as is_event
-        if fire_and_forget and not is_event:
-            is_event = True
-        
         return RpcMethodOptions(
             method_id=method_id,
             default_timeout_ms=default_timeout_ms,
-            fire_and_forget=fire_and_forget,
             direction=direction,
             is_event=is_event
         )

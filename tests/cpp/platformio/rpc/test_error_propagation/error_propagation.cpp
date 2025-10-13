@@ -29,7 +29,7 @@ public:
 
     const std::vector<uint8_t>& get_captured_bytes() const { return captured_bytes_; }
 
-    bool send(const uint8_t* data, size_t len, uint64_t src_addr, uint64_t dst_addr) override
+    bool send(const uint8_t* data, size_t len) override
     {
         if (capture_enabled_) {
             for (size_t i = 0; i < len; ++i) {
@@ -139,7 +139,7 @@ void test_rpc_error_propagation_basic()
     bool response_received                     = false;
     litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
 
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
+    peer_b_channel.on<SimpleMessage, SimpleMessage>(
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
@@ -151,7 +151,7 @@ void test_rpc_error_propagation_basic()
     SimpleMessage request;
     request.value = 42;
 
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
+    peer_a_channel.call<SimpleMessage, SimpleMessage>(1, 1, request, [&](const litepb::Result<SimpleMessage>& result) {
         response_received   = true;
         received_error_code = result.error.code;
     });
@@ -185,7 +185,7 @@ void test_rpc_error_propagation_various_codes()
         bool response_received                     = false;
         litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
 
-        peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
+        peer_b_channel.on<SimpleMessage, SimpleMessage>(
             1, i + 1, [expected_error_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
                 (void) src_addr;
                 litepb::Result<SimpleMessage> result;
@@ -197,7 +197,7 @@ void test_rpc_error_propagation_various_codes()
         SimpleMessage request;
         request.value = static_cast<int32_t>(i);
 
-        peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, i + 1, request,
+        peer_a_channel.call<SimpleMessage, SimpleMessage>(1, i + 1, request,
                                                                    [&](const litepb::Result<SimpleMessage>& result) {
                                                                        response_received   = true;
                                                                        received_error_code = result.error.code;
@@ -238,7 +238,7 @@ void test_timeout_overrides_server_error()
     litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
     litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
 
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
+    peer_b_channel.on<SimpleMessage, SimpleMessage>(
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
@@ -253,7 +253,7 @@ void test_timeout_overrides_server_error()
     SimpleMessage request;
     request.value = 42;
 
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(
+    peer_a_channel.call<SimpleMessage, SimpleMessage>(
         1, 1, request,
         [&](const litepb::Result<SimpleMessage>& result) {
             timeout_received    = true;
@@ -281,7 +281,7 @@ void test_multi_service_error_isolation()
     litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
     litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
 
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
+    peer_b_channel.on<SimpleMessage, SimpleMessage>(
         1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
@@ -290,7 +290,7 @@ void test_multi_service_error_isolation()
             return result;
         });
 
-    peer_b_channel.on_internal<SimpleMessage, SimpleMessage>(
+    peer_b_channel.on<SimpleMessage, SimpleMessage>(
         2, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             (void) src_addr;
             litepb::Result<SimpleMessage> result;
@@ -305,7 +305,7 @@ void test_multi_service_error_isolation()
     SimpleMessage request1;
     request1.value = 10;
 
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(1, 1, request1, [&](const litepb::Result<SimpleMessage>& result) {
+    peer_a_channel.call<SimpleMessage, SimpleMessage>(1, 1, request1, [&](const litepb::Result<SimpleMessage>& result) {
         service1_response_received = true;
         service1_error_code        = result.error.code;
     });
@@ -325,7 +325,7 @@ void test_multi_service_error_isolation()
     SimpleMessage request2;
     request2.value = 20;
 
-    peer_a_channel.call_internal<SimpleMessage, SimpleMessage>(2, 1, request2, [&](const litepb::Result<SimpleMessage>& result) {
+    peer_a_channel.call<SimpleMessage, SimpleMessage>(2, 1, request2, [&](const litepb::Result<SimpleMessage>& result) {
         service2_response_received = true;
         service2_error_code        = result.error.code;
         service2_value             = result.value.value;

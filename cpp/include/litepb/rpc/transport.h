@@ -19,7 +19,8 @@ namespace litepb {
  * - Checking if data is available
  *
  * The Transport abstraction allows the RPC layer to remain independent
- * of the underlying communication mechanism.
+ * of the underlying communication mechanism. Addressing/routing is handled
+ * internally by the transport implementation if needed.
  *
  * @note Implementations must be non-blocking to support async operation
  * @note recv() may return partial data; framing layer handles buffering
@@ -29,58 +30,51 @@ public:
     virtual ~Transport() = default;
 
     /**
-     * @brief Send raw bytes over the transport with addressing
+     * @brief Send raw bytes over the transport
      *
-     * Attempts to transmit the provided data buffer with transport-level addressing.
+     * Attempts to transmit the provided data buffer.
      * For stream-based transports (UART, TCP), this may send partial data.
      * For packet-based transports (UDP, LoRa), this should send the complete buffer or fail.
      *
      * @param data Pointer to buffer containing bytes to send
      * @param len Number of bytes to send
-     * @param src_addr Source address for the message
-     * @param dst_addr Destination address for the message
      * @return true if send initiated successfully, false on error
      *
      * @note Non-blocking: may return before all data is transmitted
      * @note Stream transports: may send partial data (check return value)
      * @note Packet transports: should send complete buffer atomically
-     * @note Addressing is handled at the transport layer
-     * @note msg_id has been moved to the RpcMessage protocol buffer
+     * @note Addressing/routing is handled internally by transport implementation
      */
-    virtual bool send(const uint8_t * data, size_t len, uint64_t src_addr, uint64_t dst_addr) = 0;
+    virtual bool send(const uint8_t * data, size_t len) = 0;
 
     /**
-     * @brief Receive bytes from the transport with addressing
+     * @brief Receive bytes from the transport
      *
-     * Reads available data into the provided buffer and extracts transport-level addressing.
+     * Reads available data into the provided buffer.
      * The amount of data returned depends on the transport type:
      * - Stream transports: May return any amount up to max_len
      * - Packet transports: May return less than a full packet if buffered
      *
      * @param buffer Destination buffer for received data
      * @param max_len Maximum bytes to read (buffer capacity)
-     * @param src_addr Output: Source address from received message
-     * @param dst_addr Output: Destination address from received message
      * @return Number of bytes actually read (0 if none available)
      *
      * @note Non-blocking: returns immediately with available data
-     * @note Return value of 0 indicates no data available (not an error)
-     * @note Caller must check return value to determine bytes received
-     * @note Addressing information is extracted from transport layer
-     * @note msg_id has been moved to the RpcMessage protocol buffer
+     * @note Use available() first to check if data is present
+     * @note Buffer must be large enough for max_len bytes
      */
-    virtual size_t recv(uint8_t * buffer, size_t max_len, uint64_t & src_addr, uint64_t & dst_addr) = 0;
+    virtual size_t recv(uint8_t * buffer, size_t max_len) = 0;
 
     /**
      * @brief Check if data is available to receive
      *
-     * Quick check to determine if recv() would return data without blocking.
-     * Useful for event loop optimization to avoid unnecessary recv() calls.
+     * Returns true if at least one byte is available to read.
+     * This allows non-blocking operation by checking before calling recv().
      *
-     * @return true if data is available, false otherwise
+     * @return true if data available, false otherwise
      *
-     * @note This is a hint; available() == true doesn't guarantee recv() success
-     * @note Some transports may always return true and rely on recv() == 0
+     * @note Should be fast and non-blocking
+     * @note May be conservative (false negatives) but not false positives
      */
     virtual bool available() = 0;
 };

@@ -22,8 +22,8 @@ int main()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    RpcChannel peer_a_channel(peer_a_transport, 0x01, 1000);
-    RpcChannel peer_b_channel(peer_b_transport, 0x02, 1000);
+    RpcChannel peer_a_channel(peer_a_transport, 1000);
+    RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     std::cout << "Step 1: Setting up services on both peers..." << std::endl;
     std::cout << "  - SensorService (service_id=1)" << std::endl;

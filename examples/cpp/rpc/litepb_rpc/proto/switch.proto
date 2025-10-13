@@ -21,7 +21,7 @@ service SwitchService {
     
     rpc StateChanged(StateChangedEvent) returns (StateChangedEvent) {
         option (litepb.rpc.method_id) = 4;
-        option (litepb.rpc.fire_and_forget) = true;
+        option (litepb.rpc.is_event) = true;
     }
 }
 

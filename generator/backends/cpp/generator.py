@@ -9,12 +9,12 @@ from typing import List
 from jinja2 import Environment, FileSystemLoader
 from google.protobuf import descriptor_pb2 as pb2
 
-from generator.backends.base import LanguageGenerator
-from generator.backends.cpp.cpp_utils import CppUtils
-from generator.backends.cpp.message_codegen import MessageCodegen
-from generator.backends.cpp.serialization_codegen import SerializationCodegen
-from generator.backends.cpp.type_mapper import TypeMapper
-from generator.core.proto_parser import ProtoParser
+from ..base import LanguageGenerator
+from .cpp_utils import CppUtils
+from .message_codegen import MessageCodegen
+from .serialization_codegen import SerializationCodegen
+from .type_mapper import TypeMapper
+from ...core.proto_parser import ProtoParser
 
 
 class CppGenerator(LanguageGenerator):
@@ -30,7 +30,7 @@ class CppGenerator(LanguageGenerator):
     def rpc_generator(self):
         """Lazy-load RPC generator only when services are detected."""
         if not hasattr(self, '_rpc_generator'):
-            from generator.rpc.litepb.generator import LitePBRpcGenerator
+            from ...rpc.litepb.generator import LitePBRpcGenerator
             self._rpc_generator = LitePBRpcGenerator()
         return self._rpc_generator
     

@@ -23,17 +23,6 @@ extend google.protobuf.MethodOptions {
   // Example: option (litepb.rpc.method_id) = 1;
   uint32 method_id = 50004;
   
-  // fire_and_forget marks this RPC as a one-way event (no response expected).
-  // When true, the method sends a message without waiting for a response.
-  // - No pending call slots are allocated
-  // - msg_id is set to 0 in the wire protocol
-  // - No callback or timeout handling
-  // - Efficient for notifications, telemetry, and event streams
-  // Default: false (traditional request-response RPC)
-  // Example: option (litepb.rpc.fire_and_forget) = true;
-  // DEPRECATED: Use is_event instead for clearer semantics
-  bool fire_and_forget = 50005;
-  
   // default_timeout_ms sets the default timeout for this RPC call in milliseconds.
   // Can be overridden per-call at runtime. A value of 0 means no timeout.
   // Default: Implementation-defined (typically 5000ms)
