@@ -33,6 +33,7 @@ LitePB is a lightweight C++ Protocol Buffer serialization library designed for e
 Communication style: Simple, everyday language
 
 **Development Practices:**
+- Always use the `litepb_gen` wrapper script in the project root to run the generator - never run Python directly from the generator/ folder
 - Always set executable permissions (+x) for all scripts in `scripts/*.{sh,py}`
 - Bash script standards:
   - Start all scripts with `set -e` (or `set -o pipefail` for pipeline-heavy scripts)
