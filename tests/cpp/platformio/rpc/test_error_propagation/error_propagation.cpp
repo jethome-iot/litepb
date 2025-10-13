@@ -41,22 +41,14 @@ public:
             return false;
         }
 
-        // Store metadata for recv (msg_id now in RpcMessage)
-        peer_->last_src_addr_ = src_addr;
-        peer_->last_dst_addr_ = dst_addr;
-
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
         }
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) override
+    size_t recv(uint8_t* buffer, size_t max_len) override
     {
-        // Return stored metadata (msg_id now in RpcMessage)
-        src_addr = last_src_addr_;
-        dst_addr = last_dst_addr_;
-
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
             buffer[count++] = rx_queue_.front();
@@ -68,8 +60,6 @@ public:
     bool available() override { return !rx_queue_.empty(); }
 
     std::queue<uint8_t> rx_queue_;
-    uint64_t last_src_addr_ = 0;
-    uint64_t last_dst_addr_ = 0;
 
 private:
     LoopbackTransport* peer_;
@@ -133,15 +123,14 @@ void test_rpc_error_propagation_basic()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     bool response_received                     = false;
     litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
 
     peer_b_channel.on<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.error.code  = litepb::RpcError::TRANSPORT_ERROR;
             result.value.value = req.value;
@@ -173,8 +162,8 @@ void test_rpc_error_propagation_various_codes()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     litepb::RpcError::Code test_error_codes[] = { litepb::RpcError::TIMEOUT, litepb::RpcError::PARSE_ERROR,
                                                   litepb::RpcError::TRANSPORT_ERROR, litepb::RpcError::HANDLER_NOT_FOUND };
@@ -186,8 +175,7 @@ void test_rpc_error_propagation_various_codes()
         litepb::RpcError::Code received_error_code = litepb::RpcError::OK;
 
         peer_b_channel.on<SimpleMessage, SimpleMessage>(
-            1, i + 1, [expected_error_code](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-                (void) src_addr;
+            1, i + 1, [expected_error_code](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
                 litepb::Result<SimpleMessage> result;
                 result.error.code  = expected_error_code;
                 result.value.value = req.value;
@@ -235,12 +223,11 @@ void test_timeout_overrides_server_error()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     peer_b_channel.on<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.error.code  = litepb::RpcError::TRANSPORT_ERROR;
             result.value.value = req.value;
@@ -259,7 +246,7 @@ void test_timeout_overrides_server_error()
             timeout_received    = true;
             received_error_code = result.error.code;
         },
-        50, 0);
+        50);
 
     uint32_t start_time = litepb::get_current_time_ms();
     while (!timeout_received && (litepb::get_current_time_ms() - start_time) < 200) {
@@ -278,12 +265,11 @@ void test_multi_service_error_isolation()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     peer_b_channel.on<SimpleMessage, SimpleMessage>(
-        1, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+        1, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.error.code  = litepb::RpcError::TRANSPORT_ERROR;
             result.value.value = req.value;
@@ -291,8 +277,7 @@ void test_multi_service_error_isolation()
         });
 
     peer_b_channel.on<SimpleMessage, SimpleMessage>(
-        2, 1, [](uint64_t src_addr, const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
-            (void) src_addr;
+        2, 1, [](const SimpleMessage& req) -> litepb::Result<SimpleMessage> {
             litepb::Result<SimpleMessage> result;
             result.error.code  = litepb::RpcError::OK;
             result.value.value = req.value * 2;

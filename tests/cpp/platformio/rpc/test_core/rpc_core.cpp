@@ -145,20 +145,20 @@ void test_message_id_generator_lower_addr_odd_ids()
 {
     litepb::MessageIdGenerator gen;
 
-    TEST_ASSERT_EQUAL_UINT32(1, gen.generate_for(0x01, 0x02));
-    TEST_ASSERT_EQUAL_UINT32(2, gen.generate_for(0x01, 0x02));
-    TEST_ASSERT_EQUAL_UINT32(3, gen.generate_for(0x01, 0x02));
-    TEST_ASSERT_EQUAL_UINT32(4, gen.generate_for(0x01, 0x02));
+    TEST_ASSERT_EQUAL_UINT32(1, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(2, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(3, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(4, gen.generate());
 }
 
 void test_message_id_generator_higher_addr_even_ids()
 {
     litepb::MessageIdGenerator gen;
 
-    TEST_ASSERT_EQUAL_UINT32(1, gen.generate_for(0x02, 0x01));
-    TEST_ASSERT_EQUAL_UINT32(2, gen.generate_for(0x02, 0x01));
-    TEST_ASSERT_EQUAL_UINT32(3, gen.generate_for(0x02, 0x01));
-    TEST_ASSERT_EQUAL_UINT32(4, gen.generate_for(0x02, 0x01));
+    TEST_ASSERT_EQUAL_UINT32(1, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(2, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(3, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(4, gen.generate());
 }
 
 void test_message_id_generator_sequential()
@@ -167,12 +167,12 @@ void test_message_id_generator_sequential()
     litepb::MessageIdGenerator gen_even;
 
     for (uint32_t i = 0; i < 10; ++i) {
-        uint32_t id_odd = gen_odd.generate_for(0x01, 0x02);
+        uint32_t id_odd = gen_odd.generate();
         TEST_ASSERT_EQUAL_UINT32(1 + i, id_odd);
     }
 
     for (uint32_t i = 0; i < 10; ++i) {
-        uint32_t id_even = gen_even.generate_for(0x02, 0x01);
+        uint32_t id_even = gen_even.generate();
         TEST_ASSERT_EQUAL_UINT32(1 + i, id_even);
     }
 }
@@ -279,19 +279,19 @@ void test_message_id_generator_broadcast_ids()
 {
     litepb::MessageIdGenerator gen;
 
-    TEST_ASSERT_EQUAL_UINT32(1, gen.generate_for(0x01, litepb::RPC_ADDRESS_WILDCARD));
-    TEST_ASSERT_EQUAL_UINT32(2, gen.generate_for(0x01, litepb::RPC_ADDRESS_WILDCARD));
-    TEST_ASSERT_EQUAL_UINT32(3, gen.generate_for(0x01, litepb::RPC_ADDRESS_BROADCAST));
-    TEST_ASSERT_EQUAL_UINT32(4, gen.generate_for(0x01, litepb::RPC_ADDRESS_BROADCAST));
+    TEST_ASSERT_EQUAL_UINT32(1, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(2, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(3, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(4, gen.generate());
 }
 
 void test_message_id_generator_same_address()
 {
     litepb::MessageIdGenerator gen;
 
-    TEST_ASSERT_EQUAL_UINT32(1, gen.generate_for(0x05, 0x05));
-    TEST_ASSERT_EQUAL_UINT32(2, gen.generate_for(0x05, 0x05));
-    TEST_ASSERT_EQUAL_UINT32(3, gen.generate_for(0x05, 0x05));
+    TEST_ASSERT_EQUAL_UINT32(1, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(2, gen.generate());
+    TEST_ASSERT_EQUAL_UINT32(3, gen.generate());
 }
 
 void test_bidirectional_no_id_collision()
@@ -586,15 +586,15 @@ void test_decode_message_packet_transport_empty_payload()
 
 void test_transport_recv_returns_zero()
 {
-    struct ZeroRecvTransport : public litepb::Transport
+    struct ZeroRecvTransport : public litepb::StreamTransport
     {
         bool available() override { return true; }
-        size_t recv(uint8_t*, size_t, uint64_t&, uint64_t&) override
+        size_t recv(uint8_t*, size_t) override
         {
             recv_count++;
             return 0;
         }
-        bool send(const uint8_t*, size_t, uint64_t, uint64_t) override { return true; }
+        bool send(const uint8_t*, size_t) override { return true; }
         int recv_count = 0;
     };
 

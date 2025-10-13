@@ -26,22 +26,14 @@ public:
             return false;
         }
 
-        // Store metadata for recv (msg_id now in RpcMessage)
-        peer_->last_src_addr_ = src_addr;
-        peer_->last_dst_addr_ = dst_addr;
-
         for (size_t i = 0; i < len; ++i) {
             peer_->rx_queue_.push(data[i]);
         }
         return true;
     }
 
-    size_t recv(uint8_t* buffer, size_t max_len, uint64_t& src_addr, uint64_t& dst_addr) override
+    size_t recv(uint8_t* buffer, size_t max_len) override
     {
-        // Return stored metadata (msg_id now in RpcMessage)
-        src_addr = last_src_addr_;
-        dst_addr = last_dst_addr_;
-
         size_t count = 0;
         while (!rx_queue_.empty() && count < max_len) {
             buffer[count++] = rx_queue_.front();
@@ -55,8 +47,6 @@ public:
 private:
     LoopbackTransport* peer_;
     std::queue<uint8_t> rx_queue_;
-    uint64_t last_src_addr_ = 0;
-    uint64_t last_dst_addr_ = 0;
 };
 
 void test_client_server_roundtrip()
@@ -67,16 +57,15 @@ void test_client_server_roundtrip()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     bool response_received = false;
     int32_t response_value = 0;
     std::string response_message;
 
     peer_b_channel.on<EchoRequest, EchoResponse>(
-        1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
-            (void) src_addr;
+        1, 1, [](const EchoRequest& req) -> litepb::Result<EchoResponse> {
             litepb::Result<EchoResponse> result;
             result.value.value   = req.value;
             result.value.message = req.message;
@@ -113,8 +102,8 @@ void test_bidirectional_rpc()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     bool client_response_received = false;
     bool server_response_received = false;
@@ -122,8 +111,7 @@ void test_bidirectional_rpc()
     int32_t server_response_value = 0;
 
     peer_a_channel.on<EchoRequest, EchoResponse>(
-        1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
-            (void) src_addr;
+        1, 1, [](const EchoRequest& req) -> litepb::Result<EchoResponse> {
             litepb::Result<EchoResponse> result;
             result.value.value   = req.value * 2;
             result.value.message = "Client echo: " + req.message;
@@ -132,8 +120,7 @@ void test_bidirectional_rpc()
         });
 
     peer_b_channel.on<EchoRequest, EchoResponse>(
-        1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
-            (void) src_addr;
+        1, 1, [](const EchoRequest& req) -> litepb::Result<EchoResponse> {
             litepb::Result<EchoResponse> result;
             result.value.value   = req.value * 3;
             result.value.message = "Server echo: " + req.message;
@@ -186,8 +173,8 @@ void test_timeout_scenario()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 100);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 100);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 100);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 100);
 
     bool timeout_received             = false;
     litepb::RpcError::Code error_code = litepb::RpcError::OK;
@@ -202,7 +189,7 @@ void test_timeout_scenario()
             timeout_received = true;
             error_code       = result.error.code;
         },
-        50, 0);
+        50);
 
     uint32_t start_time = litepb::get_current_time_ms();
     while (!timeout_received && (litepb::get_current_time_ms() - start_time) < 200) {
@@ -221,16 +208,15 @@ void test_error_propagation()
     peer_a_transport.connect_to_peer(&peer_b_transport);
     peer_b_transport.connect_to_peer(&peer_a_transport);
 
-    litepb::RpcChannel peer_a_channel(peer_a_transport, 1, 1000);
-    litepb::RpcChannel peer_b_channel(peer_b_transport, 2, 1000);
+    litepb::RpcChannel peer_a_channel(peer_a_transport, 1000);
+    litepb::RpcChannel peer_b_channel(peer_b_transport, 1000);
 
     bool error_received               = false;
     litepb::RpcError::Code error_code = litepb::RpcError::OK;
     std::string error_message;
 
     peer_b_channel.on<EchoRequest, EchoResponse>(
-        1, 1, [](uint64_t src_addr, const EchoRequest& req) -> litepb::Result<EchoResponse> {
-            (void) src_addr;
+        1, 1, [](const EchoRequest& req) -> litepb::Result<EchoResponse> {
             litepb::Result<EchoResponse> result;
 
             if (req.value < 0) {
