@@ -3,8 +3,10 @@
 #if defined(ESP_PLATFORM)
 
 #define UNITY_INCLUDE_DOUBLE
-#define UNITY_DOUBLE_TYPE float
-#define UNITY_DOUBLE_PRECISION 0.001f
+#define UNITY_DOUBLE_TYPE double
+#define UNITY_DOUBLE_PRECISION 1e-9
+
+//#define UNITY_SUPPORT_64 // <-- NOT works!!!
 
 #elif defined(__unix__) || defined(__APPLE__)
 
