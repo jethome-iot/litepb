@@ -90,7 +90,6 @@ set(UNITY_SRC_DIR "${unity_SOURCE_DIR}/src")
 # Create the test executable
 add_executable(interop_tests
     interop.cpp
-    protoc_helpers.cpp
     test_runner.cpp
     ${GENERATED_DIR}/test_vectors.pb.cpp
     ${GENERATED_DIR}/protoc/test_vectors.pb.cc
