@@ -49,10 +49,6 @@ struct {{ message.name }};
 {{ generate_message_definition(message) }}
 {% endfor %}
 
-{%- if rpc_services_code %}
-{{ rpc_services_code }}
-{% endif %}
-
 {% if package %}
 {%- set first_ns = namespace_parts[0] if namespace_parts else '' %}
 {%- if namespace_prefix and first_ns == namespace_prefix %}
