@@ -1,5 +1,6 @@
 #include "litepb/litepb.h"
 #include "test_vectors.pb.h"
+#include "protoc/test_vectors.pb.h"
 #include "unity.h"
 #ifdef HAVE_ABSL_LOG
 #include <absl/log/initialize.h>
