@@ -4,6 +4,12 @@
 LitePB is a lightweight C++ Protocol Buffer serialization library designed for embedded systems. It offers wire format compatibility with standard Protocol Buffers, ensuring interoperability across different platforms. The project provides a robust, efficient solution for message serialization in resource-constrained environments with zero external dependencies.
 
 ## Recent Changes
+**October 2025 - CMake Support and Examples Reorganization:**
+- **Added CMake build support** - LitePB can now be built as a static library for CMake projects via `cmake/CMakeLists.txt`
+- **Reorganized examples** - Split into `examples/cpp/platformio/` (PlatformIO examples) and `examples/cpp/cmake/` (CMake examples)
+- **Created CMake examples** - `basic_serialization` and `all_types` examples demonstrating LitePB usage with CMake
+- **Split test scripts** - `scripts/run_platformio_examples.sh` and `scripts/run_cmake_examples.sh` for testing respective example types
+
 **October 2025 - RPC Removal and Library Simplification:**
 - **Removed all RPC functionality** to focus purely on Protocol Buffer serialization
 - **Library is now simpler and more focused** on its core value: efficient message serialization for embedded systems
@@ -43,10 +49,10 @@ Communication style: Simple, everyday language
   - See existing scripts in `scripts/*.sh` for examples
 - To run all PlatformIO targets from fresh, delete all build folders: `find . -name ".pio" -type d -print0 | xargs -0 rm -rf`
 - Use `#pragma once` at the top of all C++ header files instead of traditional include guards - this is simpler, less error-prone, and supported by all modern compilers
-- Run tests after each build: 1) `pio test` 2) `scripts/run_interop_tests.sh` 3) `scripts/run_examples_tests.sh`
+- Run tests after each build: 1) `pio test` 2) `scripts/run_interop_tests.sh` 3) `scripts/run_platformio_examples.sh` 4) `scripts/run_cmake_examples.sh`
 
 ## System Architecture
-- **Build System**: PlatformIO with centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include). Integrates with a Python-based code generator for Protocol Buffer files.
+- **Build System**: Supports both PlatformIO (for embedded development) and CMake (for general C++ projects). PlatformIO uses centralized directory configuration (src_dir = cpp/src, include_dir = cpp/include). CMake configuration in `cmake/CMakeLists.txt` builds LitePB as a static library. Both integrate with the Python-based code generator for Protocol Buffer files.
 - **Serialization**: Wire format compatible with standard Protocol Buffers, supporting zigzag encoding, packed repeated fields, and map field serialization.
 - **Code Generation**: A modular Python-based code generator (`generator/`) creates C++ files from `.proto` definitions. It uses Jinja2 templates, Google Protobuf descriptor objects. Generated files are not committed to the repository.
 - **Code Style**: Enforced via `clang-format` with a `.clang-format` configuration (4-space indentation, left-aligned pointers, 132-character column limit).
@@ -60,7 +66,7 @@ Communication style: Simple, everyday language
 - **uv**: Python package manager.
 - **clang-format**: C++ code formatting tool.
 - **lcov/genhtml**: Tools for generating code coverage reports.
-- **CMake**: Used for building standalone interoperability tests.
+- **CMake**: Used for building LitePB as a static library, CMake examples, and standalone interoperability tests.
 - **CPM**: C++ Package Manager for managing C++ dependencies in interoperability tests.
 - **Google Protocol Buffers**: Used for message serialization and definition.
 - **Jinja2**: Python templating engine used by the code generator.
