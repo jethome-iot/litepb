@@ -12,10 +12,10 @@
     "linux",
     "lightweight"
   ],
-  "homepage": "https://github.com/litepb/litepb",
+  "homepage": "https://github.com/jethome-iot/litepb",
   "repository": {
     "type": "git",
-    "url": "https://github.com/litepb/litepb.git"
+    "url": "https://github.com/jethome-iot/litepb.git"
   },
   "authors": [
     {
