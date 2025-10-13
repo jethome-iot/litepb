@@ -1,5 +1,13 @@
 #pragma once
 
+#if defined(ESP_PLATFORM)
+
+#define UNITY_INCLUDE_DOUBLE
+#define UNITY_DOUBLE_TYPE float
+#define UNITY_DOUBLE_PRECISION 0.001f
+
+#elif defined(__unix__) || defined(__APPLE__)
+
 // Enable support for double-precision assertions in Unity
 #define UNITY_INCLUDE_DOUBLE
 #define UNITY_DOUBLE_TYPE double
@@ -7,3 +15,7 @@
 
 // Enable 64-bit integer assertions (int64_t / uint64_t)
 #define UNITY_SUPPORT_64
+
+#else
+#error "Unsupported platform"
+#endif
