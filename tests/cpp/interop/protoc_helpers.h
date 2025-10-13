@@ -79,3 +79,83 @@ bool protoc_decode_oneof_test(const std::vector<uint8_t> & buffer, OneofTestData
 
 std::vector<uint8_t> protoc_encode_enum_test(const EnumTestData & data);
 bool protoc_decode_enum_test(const std::vector<uint8_t> & buffer, EnumTestData & data);
+
+struct OptionalFieldsData {
+    bool has_opt_int32;
+    int32_t opt_int32;
+    bool has_opt_string;
+    std::string opt_string;
+    bool has_opt_bool;
+    bool opt_bool;
+};
+
+struct EmptyMessageData {
+};
+
+struct UnpackedRepeatedData {
+    std::vector<int32_t> unpacked_ints;
+    std::vector<float> unpacked_floats;
+};
+
+struct DifferentMapsData {
+    std::map<int32_t, std::string> int_to_string;
+    std::map<std::string, std::string> string_to_string;
+    std::map<int64_t, int64_t> int_to_int;
+};
+
+struct ItemData {
+    int32_t id;
+    std::string name;
+};
+
+struct RepeatedMessagesData {
+    std::vector<ItemData> items;
+};
+
+struct NestedEnumTestData {
+    int32_t status;
+    int32_t code;
+};
+
+struct LargeFieldNumbersData {
+    int32_t field_1;
+    int32_t field_100;
+    int32_t field_1000;
+    int32_t field_10000;
+};
+
+struct UnknownFieldsNewData {
+    int32_t known_field;
+    std::string extra_field;
+};
+
+struct UnknownFieldsOldData {
+    int32_t known_field;
+};
+
+std::vector<uint8_t> protoc_encode_optional_fields(const OptionalFieldsData & data);
+bool protoc_decode_optional_fields(const std::vector<uint8_t> & buffer, OptionalFieldsData & data);
+
+std::vector<uint8_t> protoc_encode_empty_message(const EmptyMessageData & data);
+bool protoc_decode_empty_message(const std::vector<uint8_t> & buffer, EmptyMessageData & data);
+
+std::vector<uint8_t> protoc_encode_unpacked_repeated(const UnpackedRepeatedData & data);
+bool protoc_decode_unpacked_repeated(const std::vector<uint8_t> & buffer, UnpackedRepeatedData & data);
+
+std::vector<uint8_t> protoc_encode_different_maps(const DifferentMapsData & data);
+bool protoc_decode_different_maps(const std::vector<uint8_t> & buffer, DifferentMapsData & data);
+
+std::vector<uint8_t> protoc_encode_repeated_messages(const RepeatedMessagesData & data);
+bool protoc_decode_repeated_messages(const std::vector<uint8_t> & buffer, RepeatedMessagesData & data);
+
+std::vector<uint8_t> protoc_encode_nested_enum_test(const NestedEnumTestData & data);
+bool protoc_decode_nested_enum_test(const std::vector<uint8_t> & buffer, NestedEnumTestData & data);
+
+std::vector<uint8_t> protoc_encode_large_field_numbers(const LargeFieldNumbersData & data);
+bool protoc_decode_large_field_numbers(const std::vector<uint8_t> & buffer, LargeFieldNumbersData & data);
+
+std::vector<uint8_t> protoc_encode_unknown_fields_new(const UnknownFieldsNewData & data);
+bool protoc_decode_unknown_fields_new(const std::vector<uint8_t> & buffer, UnknownFieldsNewData & data);
+
+std::vector<uint8_t> protoc_encode_unknown_fields_old(const UnknownFieldsOldData & data);
+bool protoc_decode_unknown_fields_old(const std::vector<uint8_t> & buffer, UnknownFieldsOldData & data);

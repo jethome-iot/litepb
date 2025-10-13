@@ -269,3 +269,282 @@ bool protoc_decode_enum_test(const std::vector<uint8_t>& buffer, EnumTestData& d
 
     return true;
 }
+
+std::vector<uint8_t> protoc_encode_optional_fields(const OptionalFieldsData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::OptionalFields>();
+    if (data.has_opt_int32) {
+        msg->set_opt_int32(data.opt_int32);
+    }
+    if (data.has_opt_string) {
+        msg->set_opt_string(data.opt_string);
+    }
+    if (data.has_opt_bool) {
+        msg->set_opt_bool(data.opt_bool);
+    }
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_optional_fields(const std::vector<uint8_t>& buffer, OptionalFieldsData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::OptionalFields>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.has_opt_int32 = msg->has_opt_int32();
+    if (data.has_opt_int32) {
+        data.opt_int32 = msg->opt_int32();
+    }
+    data.has_opt_string = msg->has_opt_string();
+    if (data.has_opt_string) {
+        data.opt_string = msg->opt_string();
+    }
+    data.has_opt_bool = msg->has_opt_bool();
+    if (data.has_opt_bool) {
+        data.opt_bool = msg->opt_bool();
+    }
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_empty_message(const EmptyMessageData& data)
+{
+    (void) data;
+    auto msg = std::make_unique<litepb::test::interop::EmptyMessage>();
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_empty_message(const std::vector<uint8_t>& buffer, EmptyMessageData& data)
+{
+    (void) data;
+    auto msg = std::make_unique<litepb::test::interop::EmptyMessage>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_unpacked_repeated(const UnpackedRepeatedData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::UnpackedRepeated>();
+    for (const auto& v : data.unpacked_ints) {
+        msg->add_unpacked_ints(v);
+    }
+    for (const auto& v : data.unpacked_floats) {
+        msg->add_unpacked_floats(v);
+    }
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_unpacked_repeated(const std::vector<uint8_t>& buffer, UnpackedRepeatedData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::UnpackedRepeated>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.unpacked_ints.clear();
+    for (int i = 0; i < msg->unpacked_ints_size(); i++) {
+        data.unpacked_ints.push_back(msg->unpacked_ints(i));
+    }
+
+    data.unpacked_floats.clear();
+    for (int i = 0; i < msg->unpacked_floats_size(); i++) {
+        data.unpacked_floats.push_back(msg->unpacked_floats(i));
+    }
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_different_maps(const DifferentMapsData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::DifferentMaps>();
+    for (const auto& kv : data.int_to_string) {
+        (*msg->mutable_int_to_string())[kv.first] = kv.second;
+    }
+    for (const auto& kv : data.string_to_string) {
+        (*msg->mutable_string_to_string())[kv.first] = kv.second;
+    }
+    for (const auto& kv : data.int_to_int) {
+        (*msg->mutable_int_to_int())[kv.first] = kv.second;
+    }
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_different_maps(const std::vector<uint8_t>& buffer, DifferentMapsData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::DifferentMaps>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.int_to_string.clear();
+    for (const auto& kv : msg->int_to_string()) {
+        data.int_to_string[kv.first] = kv.second;
+    }
+
+    data.string_to_string.clear();
+    for (const auto& kv : msg->string_to_string()) {
+        data.string_to_string[kv.first] = kv.second;
+    }
+
+    data.int_to_int.clear();
+    for (const auto& kv : msg->int_to_int()) {
+        data.int_to_int[kv.first] = kv.second;
+    }
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_repeated_messages(const RepeatedMessagesData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::RepeatedMessages>();
+    for (const auto& item : data.items) {
+        auto* item_msg = msg->add_items();
+        item_msg->set_id(item.id);
+        item_msg->set_name(item.name);
+    }
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_repeated_messages(const std::vector<uint8_t>& buffer, RepeatedMessagesData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::RepeatedMessages>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.items.clear();
+    for (int i = 0; i < msg->items_size(); i++) {
+        ItemData item;
+        item.id   = msg->items(i).id();
+        item.name = msg->items(i).name();
+        data.items.push_back(item);
+    }
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_nested_enum_test(const NestedEnumTestData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::NestedEnumTest>();
+    msg->set_status(static_cast<litepb::test::interop::NestedEnumTest::Status>(data.status));
+    msg->set_code(data.code);
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_nested_enum_test(const std::vector<uint8_t>& buffer, NestedEnumTestData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::NestedEnumTest>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.status = static_cast<int32_t>(msg->status());
+    data.code   = msg->code();
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_large_field_numbers(const LargeFieldNumbersData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::LargeFieldNumbers>();
+    msg->set_field_1(data.field_1);
+    msg->set_field_100(data.field_100);
+    msg->set_field_1000(data.field_1000);
+    msg->set_field_10000(data.field_10000);
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_large_field_numbers(const std::vector<uint8_t>& buffer, LargeFieldNumbersData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::LargeFieldNumbers>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.field_1     = msg->field_1();
+    data.field_100   = msg->field_100();
+    data.field_1000  = msg->field_1000();
+    data.field_10000 = msg->field_10000();
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_unknown_fields_new(const UnknownFieldsNewData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::UnknownFieldsNew>();
+    msg->set_known_field(data.known_field);
+    msg->set_extra_field(data.extra_field);
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_unknown_fields_new(const std::vector<uint8_t>& buffer, UnknownFieldsNewData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::UnknownFieldsNew>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.known_field = msg->known_field();
+    data.extra_field = msg->extra_field();
+
+    return true;
+}
+
+std::vector<uint8_t> protoc_encode_unknown_fields_old(const UnknownFieldsOldData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::UnknownFieldsOld>();
+    msg->set_known_field(data.known_field);
+
+    size_t size = msg->ByteSizeLong();
+    std::vector<uint8_t> buffer(size);
+    msg->SerializeToArray(buffer.data(), size);
+    return buffer;
+}
+
+bool protoc_decode_unknown_fields_old(const std::vector<uint8_t>& buffer, UnknownFieldsOldData& data)
+{
+    auto msg = std::make_unique<litepb::test::interop::UnknownFieldsOld>();
+    if (!msg->ParseFromArray(buffer.data(), buffer.size())) {
+        return false;
+    }
+
+    data.known_field = msg->known_field();
+
+    return true;
+}

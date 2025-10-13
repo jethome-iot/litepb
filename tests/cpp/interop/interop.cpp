@@ -412,3 +412,339 @@ void test_enum()
     TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
     TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
 }
+
+void test_optional_fields()
+{
+    litepb_gen::litepb::test::interop::OptionalFields litepb_msg;
+    litepb_msg.opt_int32  = 42;
+    litepb_msg.opt_string = "test";
+    litepb_msg.opt_bool   = true;
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    OptionalFieldsData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_optional_fields(litepb_encoded, protoc_data));
+    TEST_ASSERT_TRUE(protoc_data.has_opt_int32);
+    TEST_ASSERT_EQUAL_INT32(42, protoc_data.opt_int32);
+    TEST_ASSERT_TRUE(protoc_data.has_opt_string);
+    TEST_ASSERT_EQUAL_STRING("test", protoc_data.opt_string.c_str());
+    TEST_ASSERT_TRUE(protoc_data.has_opt_bool);
+    TEST_ASSERT_TRUE(protoc_data.opt_bool);
+
+    OptionalFieldsData encode_data;
+    encode_data.has_opt_int32  = true;
+    encode_data.opt_int32      = 100;
+    encode_data.has_opt_string = false;
+    encode_data.has_opt_bool   = true;
+    encode_data.opt_bool       = false;
+
+    auto protoc_encoded = protoc_encode_optional_fields(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::OptionalFields litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    TEST_ASSERT_TRUE(litepb_decoded.opt_int32.has_value());
+    TEST_ASSERT_EQUAL_INT32(100, litepb_decoded.opt_int32.value());
+    TEST_ASSERT_FALSE(litepb_decoded.opt_string.has_value());
+    TEST_ASSERT_TRUE(litepb_decoded.opt_bool.has_value());
+    TEST_ASSERT_FALSE(litepb_decoded.opt_bool.value());
+
+    litepb::BufferOutputStream reserialize_stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_decoded, reserialize_stream));
+    std::vector<uint8_t> litepb_reencoded(reserialize_stream.data(), reserialize_stream.data() + reserialize_stream.size());
+
+    TEST_ASSERT_EQUAL_size_t(protoc_encoded.size(), litepb_reencoded.size());
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_encoded.data(), litepb_reencoded.data(), protoc_encoded.size());
+
+    OptionalFieldsData binary_check_data;
+    binary_check_data.has_opt_int32  = true;
+    binary_check_data.opt_int32      = 42;
+    binary_check_data.has_opt_string = true;
+    binary_check_data.opt_string     = "test";
+    binary_check_data.has_opt_bool   = true;
+    binary_check_data.opt_bool       = true;
+
+    auto protoc_bytes = protoc_encode_optional_fields(binary_check_data);
+    TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
+}
+
+void test_empty_message()
+{
+    litepb_gen::litepb::test::interop::EmptyMessage litepb_msg;
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    EmptyMessageData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_empty_message(litepb_encoded, protoc_data));
+
+    EmptyMessageData encode_data;
+
+    auto protoc_encoded = protoc_encode_empty_message(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::EmptyMessage litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    EmptyMessageData binary_check_data;
+
+    auto protoc_bytes = protoc_encode_empty_message(binary_check_data);
+    TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
+    if (protoc_bytes.size() > 0) {
+        TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
+    }
+}
+
+void test_unpacked_repeated()
+{
+    litepb_gen::litepb::test::interop::UnpackedRepeated litepb_msg;
+    litepb_msg.unpacked_ints   = { 1, 2, 3, 4, 5 };
+    litepb_msg.unpacked_floats = { 1.1f, 2.2f, 3.3f };
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    UnpackedRepeatedData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_unpacked_repeated(litepb_encoded, protoc_data));
+    TEST_ASSERT_EQUAL_size_t(5, protoc_data.unpacked_ints.size());
+    TEST_ASSERT_EQUAL_INT32(1, protoc_data.unpacked_ints[0]);
+    TEST_ASSERT_EQUAL_INT32(5, protoc_data.unpacked_ints[4]);
+    TEST_ASSERT_EQUAL_size_t(3, protoc_data.unpacked_floats.size());
+    TEST_ASSERT_EQUAL_FLOAT(1.1f, protoc_data.unpacked_floats[0]);
+    TEST_ASSERT_EQUAL_FLOAT(3.3f, protoc_data.unpacked_floats[2]);
+
+    UnpackedRepeatedData encode_data;
+    encode_data.unpacked_ints   = { 10, 20 };
+    encode_data.unpacked_floats = { 5.5f, 6.6f, 7.7f, 8.8f };
+
+    auto protoc_encoded = protoc_encode_unpacked_repeated(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::UnpackedRepeated litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    TEST_ASSERT_EQUAL_size_t(2, litepb_decoded.unpacked_ints.size());
+    TEST_ASSERT_EQUAL_INT32(10, litepb_decoded.unpacked_ints[0]);
+    TEST_ASSERT_EQUAL_INT32(20, litepb_decoded.unpacked_ints[1]);
+    TEST_ASSERT_EQUAL_size_t(4, litepb_decoded.unpacked_floats.size());
+    TEST_ASSERT_EQUAL_FLOAT(5.5f, litepb_decoded.unpacked_floats[0]);
+    TEST_ASSERT_EQUAL_FLOAT(8.8f, litepb_decoded.unpacked_floats[3]);
+
+    UnpackedRepeatedData binary_check_data;
+    binary_check_data.unpacked_ints   = { 1, 2, 3, 4, 5 };
+    binary_check_data.unpacked_floats = { 1.1f, 2.2f, 3.3f };
+
+    auto protoc_bytes = protoc_encode_unpacked_repeated(binary_check_data);
+    TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
+}
+
+void test_different_maps()
+{
+    litepb_gen::litepb::test::interop::DifferentMaps litepb_msg;
+    litepb_msg.int_to_string[1]     = "one";
+    litepb_msg.int_to_string[2]     = "two";
+    litepb_msg.string_to_string["a"] = "alpha";
+    litepb_msg.string_to_string["b"] = "beta";
+    litepb_msg.int_to_int[10]        = 100;
+    litepb_msg.int_to_int[20]        = 200;
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    DifferentMapsData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_different_maps(litepb_encoded, protoc_data));
+    TEST_ASSERT_EQUAL_size_t(2, protoc_data.int_to_string.size());
+    TEST_ASSERT_EQUAL_STRING("one", protoc_data.int_to_string[1].c_str());
+    TEST_ASSERT_EQUAL_STRING("two", protoc_data.int_to_string[2].c_str());
+    TEST_ASSERT_EQUAL_size_t(2, protoc_data.string_to_string.size());
+    TEST_ASSERT_EQUAL_STRING("alpha", protoc_data.string_to_string["a"].c_str());
+    TEST_ASSERT_EQUAL_STRING("beta", protoc_data.string_to_string["b"].c_str());
+    TEST_ASSERT_EQUAL_size_t(2, protoc_data.int_to_int.size());
+    TEST_ASSERT_EQUAL_INT64(100, protoc_data.int_to_int[10]);
+    TEST_ASSERT_EQUAL_INT64(200, protoc_data.int_to_int[20]);
+
+    DifferentMapsData encode_data;
+    encode_data.int_to_string[3]     = "three";
+    encode_data.string_to_string["c"] = "gamma";
+    encode_data.int_to_int[30]        = 300;
+
+    auto protoc_encoded = protoc_encode_different_maps(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::DifferentMaps litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    TEST_ASSERT_EQUAL_size_t(1, litepb_decoded.int_to_string.size());
+    TEST_ASSERT_EQUAL_STRING("three", litepb_decoded.int_to_string[3].c_str());
+    TEST_ASSERT_EQUAL_size_t(1, litepb_decoded.string_to_string.size());
+    TEST_ASSERT_EQUAL_STRING("gamma", litepb_decoded.string_to_string["c"].c_str());
+    TEST_ASSERT_EQUAL_size_t(1, litepb_decoded.int_to_int.size());
+    TEST_ASSERT_EQUAL_INT64(300, litepb_decoded.int_to_int[30]);
+}
+
+void test_repeated_messages()
+{
+    litepb_gen::litepb::test::interop::RepeatedMessages litepb_msg;
+    litepb_gen::litepb::test::interop::Item item1;
+    item1.id   = 1;
+    item1.name = "first";
+    litepb_msg.items.push_back(item1);
+    litepb_gen::litepb::test::interop::Item item2;
+    item2.id   = 2;
+    item2.name = "second";
+    litepb_msg.items.push_back(item2);
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    RepeatedMessagesData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_repeated_messages(litepb_encoded, protoc_data));
+    TEST_ASSERT_EQUAL_size_t(2, protoc_data.items.size());
+    TEST_ASSERT_EQUAL_INT32(1, protoc_data.items[0].id);
+    TEST_ASSERT_EQUAL_STRING("first", protoc_data.items[0].name.c_str());
+    TEST_ASSERT_EQUAL_INT32(2, protoc_data.items[1].id);
+    TEST_ASSERT_EQUAL_STRING("second", protoc_data.items[1].name.c_str());
+
+    RepeatedMessagesData encode_data;
+    ItemData encode_item1;
+    encode_item1.id   = 10;
+    encode_item1.name = "tenth";
+    encode_data.items.push_back(encode_item1);
+
+    auto protoc_encoded = protoc_encode_repeated_messages(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::RepeatedMessages litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    TEST_ASSERT_EQUAL_size_t(1, litepb_decoded.items.size());
+    TEST_ASSERT_EQUAL_INT32(10, litepb_decoded.items[0].id);
+    TEST_ASSERT_EQUAL_STRING("tenth", litepb_decoded.items[0].name.c_str());
+
+    RepeatedMessagesData binary_check_data;
+    ItemData binary_item1;
+    binary_item1.id   = 1;
+    binary_item1.name = "first";
+    binary_check_data.items.push_back(binary_item1);
+    ItemData binary_item2;
+    binary_item2.id   = 2;
+    binary_item2.name = "second";
+    binary_check_data.items.push_back(binary_item2);
+
+    auto protoc_bytes = protoc_encode_repeated_messages(binary_check_data);
+    TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
+}
+
+void test_nested_enum_test()
+{
+    litepb_gen::litepb::test::interop::NestedEnumTest litepb_msg;
+    litepb_msg.status = litepb_gen::litepb::test::interop::NestedEnumTest::Status::ACTIVE;
+    litepb_msg.code   = 42;
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    NestedEnumTestData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_nested_enum_test(litepb_encoded, protoc_data));
+    TEST_ASSERT_EQUAL_INT32(1, protoc_data.status);
+    TEST_ASSERT_EQUAL_INT32(42, protoc_data.code);
+
+    NestedEnumTestData encode_data;
+    encode_data.status = 2;
+    encode_data.code   = 100;
+
+    auto protoc_encoded = protoc_encode_nested_enum_test(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::NestedEnumTest litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    TEST_ASSERT_EQUAL_INT32(litepb_gen::litepb::test::interop::NestedEnumTest::Status::INACTIVE, litepb_decoded.status);
+    TEST_ASSERT_EQUAL_INT32(100, litepb_decoded.code);
+
+    NestedEnumTestData binary_check_data;
+    binary_check_data.status = 1;
+    binary_check_data.code   = 42;
+
+    auto protoc_bytes = protoc_encode_nested_enum_test(binary_check_data);
+    TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
+}
+
+void test_large_field_numbers()
+{
+    litepb_gen::litepb::test::interop::LargeFieldNumbers litepb_msg;
+    litepb_msg.field_1     = 1;
+    litepb_msg.field_100   = 100;
+    litepb_msg.field_1000  = 1000;
+    litepb_msg.field_10000 = 10000;
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_msg, stream));
+    std::vector<uint8_t> litepb_encoded(stream.data(), stream.data() + stream.size());
+
+    LargeFieldNumbersData protoc_data;
+    TEST_ASSERT_TRUE(protoc_decode_large_field_numbers(litepb_encoded, protoc_data));
+    TEST_ASSERT_EQUAL_INT32(1, protoc_data.field_1);
+    TEST_ASSERT_EQUAL_INT32(100, protoc_data.field_100);
+    TEST_ASSERT_EQUAL_INT32(1000, protoc_data.field_1000);
+    TEST_ASSERT_EQUAL_INT32(10000, protoc_data.field_10000);
+
+    LargeFieldNumbersData encode_data;
+    encode_data.field_1     = 11;
+    encode_data.field_100   = 110;
+    encode_data.field_1000  = 1100;
+    encode_data.field_10000 = 11000;
+
+    auto protoc_encoded = protoc_encode_large_field_numbers(encode_data);
+    litepb::BufferInputStream input_stream(protoc_encoded.data(), protoc_encoded.size());
+    litepb_gen::litepb::test::interop::LargeFieldNumbers litepb_decoded;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_decoded, input_stream));
+
+    TEST_ASSERT_EQUAL_INT32(11, litepb_decoded.field_1);
+    TEST_ASSERT_EQUAL_INT32(110, litepb_decoded.field_100);
+    TEST_ASSERT_EQUAL_INT32(1100, litepb_decoded.field_1000);
+    TEST_ASSERT_EQUAL_INT32(11000, litepb_decoded.field_10000);
+
+    LargeFieldNumbersData binary_check_data;
+    binary_check_data.field_1     = 1;
+    binary_check_data.field_100   = 100;
+    binary_check_data.field_1000  = 1000;
+    binary_check_data.field_10000 = 10000;
+
+    auto protoc_bytes = protoc_encode_large_field_numbers(binary_check_data);
+    TEST_ASSERT_EQUAL_size_t(protoc_bytes.size(), litepb_encoded.size());
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(protoc_bytes.data(), litepb_encoded.data(), protoc_bytes.size());
+}
+
+void test_unknown_fields()
+{
+    UnknownFieldsNewData new_data;
+    new_data.known_field = 42;
+    new_data.extra_field = "extra";
+
+    auto new_encoded = protoc_encode_unknown_fields_new(new_data);
+
+    UnknownFieldsOldData old_data;
+    TEST_ASSERT_TRUE(protoc_decode_unknown_fields_old(new_encoded, old_data));
+    TEST_ASSERT_EQUAL_INT32(42, old_data.known_field);
+
+    litepb::BufferInputStream input_stream(new_encoded.data(), new_encoded.size());
+    litepb_gen::litepb::test::interop::UnknownFieldsOld litepb_old;
+    TEST_ASSERT_TRUE(litepb::parse(litepb_old, input_stream));
+    TEST_ASSERT_EQUAL_INT32(42, litepb_old.known_field);
+
+    litepb::BufferOutputStream stream;
+    TEST_ASSERT_TRUE(litepb::serialize(litepb_old, stream));
+    std::vector<uint8_t> old_reencoded(stream.data(), stream.data() + stream.size());
+
+    UnknownFieldsNewData new_data_decoded;
+    TEST_ASSERT_TRUE(protoc_decode_unknown_fields_new(old_reencoded, new_data_decoded));
+    TEST_ASSERT_EQUAL_INT32(42, new_data_decoded.known_field);
+    TEST_ASSERT_EQUAL_STRING("extra", new_data_decoded.extra_field.c_str());
+}
