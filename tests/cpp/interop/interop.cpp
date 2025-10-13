@@ -7,20 +7,6 @@
 #endif
 #include <google/protobuf/stubs/common.h>
 
-// Commenting out constructor/destructor to debug segfault
-// __attribute__((constructor)) void interop_init()
-// {
-// #ifdef HAVE_ABSL_LOG
-//     absl::InitializeLog();
-// #endif
-//     GOOGLE_PROTOBUF_VERIFY_VERSION;
-// }
-
-// __attribute__((destructor)) void interop_cleanup()
-// {
-//     google::protobuf::ShutdownProtobufLibrary();
-// }
-
 void setUp() {}
 void tearDown() {}
 
