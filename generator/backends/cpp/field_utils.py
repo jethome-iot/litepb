@@ -5,7 +5,7 @@ Field inspection utilities for protobuf descriptors.
 
 from typing import List
 from google.protobuf import descriptor_pb2 as pb2
-from .models import MapFieldInfo, OneofInfo
+from generator.backends.cpp.models import MapFieldInfo, OneofInfo
 
 
 class FieldUtils:

@@ -4,9 +4,9 @@ Message and enum code generation for C++.
 """
 
 from google.protobuf import descriptor_pb2 as pb2
-from .type_mapper import TypeMapper
-from .cpp_utils import CppUtils
-from .field_utils import FieldUtils
+from generator.backends.cpp.type_mapper import TypeMapper
+from generator.backends.cpp.cpp_utils import CppUtils
+from generator.backends.cpp.field_utils import FieldUtils
 
 
 class MessageCodegen:

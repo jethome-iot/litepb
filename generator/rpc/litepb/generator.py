@@ -9,9 +9,9 @@ from typing import List
 from jinja2 import Environment, FileSystemLoader
 from google.protobuf import descriptor_pb2 as pb2
 
-from ..base import RpcGenerator
-from ...core.proto_parser import ProtoParser
-from ...core.rpc_options import CallDirection
+from generator.rpc.base import RpcGenerator
+from generator.core.proto_parser import ProtoParser
+from generator.core.rpc_options import CallDirection
 
 
 class LitePBRpcGenerator(RpcGenerator):
