@@ -17,7 +17,7 @@ LitePB is a high-performance, zero-dependency Protocol Buffers implementation sp
 
 ## Production Status
 
-✅ **Production Ready** - All 187 tests passing (177 PlatformIO unit tests + 10 interoperability tests)  
+✅ **Production Ready** - All 186 tests passing (168 PlatformIO unit tests + 18 interoperability tests)  
 ✅ **100% Wire Format Compatibility** - Full interoperability with standard Protocol Buffers (protoc)  
 ✅ **Battle-Tested** - Extensively tested on embedded platforms and native systems  
 
@@ -241,10 +241,10 @@ Located in `examples/cpp/cmake/`:
 LitePB includes a comprehensive test suite ensuring reliability and compatibility:
 
 ```bash
-# Run PlatformIO unit tests (177 tests)
+# Run PlatformIO unit tests (168 tests)
 pio test
 
-# Run interoperability tests (10 tests)
+# Run interoperability tests (18 tests)
 ./scripts/run_interop_tests.sh
 
 # Run PlatformIO examples
