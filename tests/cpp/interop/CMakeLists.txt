@@ -44,11 +44,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(unity)
 
-# Set up paths
+# Add LitePB library as a subdirectory
 set(LITEPB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
-set(LITEPB_GENERATOR "${LITEPB_ROOT}/litepb_gen")
-set(LITEPB_INCLUDE "${LITEPB_ROOT}/cpp/include")
-set(LITEPB_SRC "${LITEPB_ROOT}/cpp/src")
+add_subdirectory(${LITEPB_ROOT}/cmake ${CMAKE_CURRENT_BINARY_DIR}/litepb)
 
 # Generated code output directory
 set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -89,13 +87,6 @@ add_custom_command(
 # Unity source files
 set(UNITY_SRC_DIR "${unity_SOURCE_DIR}/src")
 
-# LitePB core sources
-set(LITEPB_CORE_SOURCES
-    ${LITEPB_SRC}/litepb/core/proto_reader.cpp
-    ${LITEPB_SRC}/litepb/core/proto_writer.cpp
-    ${LITEPB_SRC}/litepb/core/unknown_fields.cpp
-)
-
 # Create the test executable
 add_executable(interop_tests
     interop.cpp
@@ -103,7 +94,6 @@ add_executable(interop_tests
     test_runner.cpp
     ${GENERATED_DIR}/test_vectors.pb.cpp
     ${GENERATED_DIR}/protoc/test_vectors.pb.cc
-    ${LITEPB_CORE_SOURCES}
     ${UNITY_SRC_DIR}/unity.c
 )
 
@@ -112,7 +102,6 @@ target_include_directories(interop_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GENERATED_DIR}
     ${GENERATED_DIR}/protoc
-    ${LITEPB_INCLUDE}
     ${UNITY_SRC_DIR}
     ${PROTOBUF_INCLUDE_DIRS}
 )
@@ -126,6 +115,7 @@ target_link_directories(interop_tests PRIVATE
 )
 
 target_link_libraries(interop_tests PRIVATE 
+    LitePB::litepb
     ${PROTOBUF_LIBRARIES}
     ${ABSL_BASE_LIBRARIES}
     ${ABSL_STRINGS_LIBRARIES} 
@@ -154,10 +144,12 @@ target_compile_definitions(interop_tests PRIVATE
     UNITY_SUPPORT_64
 )
 
-# Create a custom target for running tests
-add_custom_target(run_tests
+# Enable testing
+enable_testing()
+
+# Add the interop test
+add_test(
+    NAME interop_tests
     COMMAND interop_tests
-    DEPENDS interop_tests
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running interop tests"
 )

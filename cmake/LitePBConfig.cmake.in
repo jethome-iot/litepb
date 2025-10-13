@@ -2,4 +2,6 @@
 
 include("${CMAKE_CURRENT_LIST_DIR}/LitePBTargets.cmake")
 
+set(LITEPB_GENERATOR "@PACKAGE_litepb_share_dir@/litepb_gen" CACHE FILEPATH "Path to LitePB code generator")
+
 check_required_components(LitePB)

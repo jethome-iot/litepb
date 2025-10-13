@@ -4,6 +4,13 @@
 LitePB is a lightweight C++ Protocol Buffer serialization library designed for embedded systems. It offers wire format compatibility with standard Protocol Buffers, ensuring interoperability across different platforms. The project provides a robust, efficient solution for message serialization in resource-constrained environments with zero external dependencies.
 
 ## Recent Changes
+**October 2025 - Interop Tests Modernization:**
+- **Modernized interop tests** - Now use LitePB as CMake subdirectory dependency instead of manual source inclusion
+- **Added CTest support** - Interop tests integrated with CTest for standard test execution
+- **Exposed LITEPB_GENERATOR** - Variable exported for downstream CMake projects via `find_package(LitePB)`
+- **Generator installation** - litepb_gen script and generator/ directory installed to `share/litepb/` for packaged use
+- **Cleaned up test files** - Removed hardcoded test executables (minimal_test, test_namespace, etc.)
+
 **October 2025 - CMake Support and Examples Reorganization:**
 - **Added CMake build support** - LitePB can now be built as a static library for CMake projects via `cmake/CMakeLists.txt`
 - **Reorganized examples** - Split into `examples/cpp/platformio/` (PlatformIO examples) and `examples/cpp/cmake/` (CMake examples)

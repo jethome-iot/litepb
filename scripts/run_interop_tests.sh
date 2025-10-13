@@ -30,6 +30,8 @@ else
 fi
 
 make
-./interop_tests
+
+# Run tests using CTest
+ctest --output-on-failure --verbose
 
 
