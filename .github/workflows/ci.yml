@@ -39,6 +39,22 @@ jobs:
       - name: Run PlatformIO unit tests
         run: ./scripts/run_platformio_tests.sh
         
+  esp32-build:
+    name: ESP32 Build
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Build ESP32 environments
+        run: pio test -e esp32_core -e esp32_serialization --without-uploading --without-testing
+        
   interop-tests:
     name: Interop Tests
     runs-on: ubuntu-24.04
