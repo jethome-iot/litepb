@@ -23,7 +23,7 @@ jobs:
       - name: Run format check
         run: ./scripts/format_check.sh
         
-  test:
+  platformio-tests:
     name: PlatformIO Tests
     runs-on: ubuntu-24.04
     container:
@@ -36,11 +36,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
           
-      - name: Run tests
-        run: pio test
+      - name: Run PlatformIO unit tests
+        run: ./scripts/run_platformio_tests.sh
         
-  test-interop:
-    name: Test Interop
+  interop-tests:
+    name: Interop Tests
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
@@ -52,46 +52,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
           
-      - name: Run interop tests
+      - name: Run interoperability tests
         run: ./scripts/run_interop_tests.sh
         
-  examples-discover:
-    name: Discover Examples
+  platformio-examples:
+    name: PlatformIO Examples
     runs-on: ubuntu-24.04
-    outputs:
-      examples: ${{ steps.find.outputs.examples }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-          
-      - name: Find examples
-        id: find
-        run: |
-          # Find all platformio.ini files under examples/
-          examples=$(find examples -name "platformio.ini" -type f | while read pio_file; do
-            example_dir=$(dirname "$pio_file")
-            name=$(basename "$example_dir")
-            has_tests="false"
-            if [ -d "$example_dir/test" ]; then
-              has_tests="true"
-            fi
-            jq -n --arg path "$example_dir" --arg name "$name" --argjson has_tests "$has_tests" \
-              '{path: $path, name: $name, has_tests: $has_tests}'
-          done | jq -sc '.')
-          echo "examples=$examples" >> $GITHUB_OUTPUT
-          echo "Found examples: $examples"
-  
-  examples:
-    name: Example ${{ matrix.example.name }}
-    runs-on: ubuntu-24.04
-    needs: [examples-discover]
-    strategy:
-      fail-fast: false
-      matrix:
-        example: ${{ fromJson(needs.examples-discover.outputs.examples) }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -102,27 +68,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
           
-      - name: Build and test example
-        working-directory: ${{ matrix.example.path }}
-        run: |
-          echo "Building example: ${{ matrix.example.name }}"
+      - name: Build and run PlatformIO examples
+        run: ./scripts/run_platformio_examples.sh
+        
+  cmake-examples:
+    name: CMake Examples
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
           
-          # Build will fail the job if it fails
-          pio run
-          
-          # Run executables with timeout
-          echo "Looking for executables in .pio/build/*/program..."
-          for program in .pio/build/*/program; do
-            if [ -f "$program" ]; then
-              echo "Running executable: $program"
-              timeout 10s "$program"
-              echo "Execution completed (or timed out after 10s)"
-            fi
-          done
-      - name: Run tests
-        if: matrix.example.has_tests
-        working-directory: ${{ matrix.example.path }}
-        run: pio test
+      - name: Build and run CMake examples
+        run: ./scripts/run_cmake_examples.sh
           
   coverage:
     name: Code Coverage
