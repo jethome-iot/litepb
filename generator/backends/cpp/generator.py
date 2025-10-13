@@ -23,16 +23,8 @@ class CppGenerator(LanguageGenerator):
     def __init__(self):
         """Initialize the generator with templates."""
         self.current_proto = None  # Track current proto for context (FileDescriptorProto)
-        self.parser = ProtoParser()  # For extracting RPC options
+        self.parser = ProtoParser()
         self.setup_templates()
-    
-    @property
-    def rpc_generator(self):
-        """Lazy-load RPC generator only when services are detected."""
-        if not hasattr(self, '_rpc_generator'):
-            from ...rpc.litepb.generator import LitePBRpcGenerator
-            self._rpc_generator = LitePBRpcGenerator()
-        return self._rpc_generator
     
     def setup_templates(self):
         """Set up Jinja2 templates for code generation."""
@@ -112,10 +104,6 @@ class CppGenerator(LanguageGenerator):
         serializer_forward_declarations = serialization_codegen.generate_all_serializer_forward_declarations(sorted_messages, namespace_prefix)
         serializers_code = serialization_codegen.generate_all_serializers(sorted_messages, namespace_prefix, True)
         
-        # Generate RPC services using the RPC generator
-        services = list(file_proto.service)
-        rpc_services_code = self.rpc_generator.generate_services(services, file_proto, namespace_prefix)
-
         # Prepare context
         context = {
             'header_guard': CppUtils.get_header_guard(filename),
@@ -126,8 +114,6 @@ class CppGenerator(LanguageGenerator):
             'uses_well_known_types': uses_well_known_types,
             'enums': list(file_proto.enum_type),
             'messages': sorted_messages,
-            'services': services,
-            'rpc_services_code': rpc_services_code,
             'serializer_forward_declarations': serializer_forward_declarations,
             'serializers_code': serializers_code,
         }

@@ -1,6 +1,0 @@
-{%- if services %}
-// RPC Service Stubs
-{% for service in services %}
-{{ generate_rpc_service(service, namespace_prefix) }}
-{% endfor %}
-{% endif %}

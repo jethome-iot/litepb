@@ -254,8 +254,7 @@ Enable debug output:
 ## Next Steps
 
 1. **Explore More Types**: Try the [all_types example](../all_types/) to see all supported field types
-2. **Learn RPC**: Check the [RPC example](../../rpc/litepb_rpc/) for remote procedure calls
-3. **Build Something**: Use LitePB in your own embedded project!
+2. **Build Something**: Use LitePB in your own embedded project!
 
 ## Project Files
 

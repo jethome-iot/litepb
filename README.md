@@ -5,13 +5,12 @@
 
 ## Overview
 
-LitePB is a high-performance, zero-dependency Protocol Buffers implementation specifically designed for embedded systems and resource-constrained environments. Built from the ground up for efficiency, LitePB provides complete Protocol Buffers functionality with minimal overhead, making it ideal for microcontrollers, IoT devices, and edge computing applications.
+LitePB is a high-performance, zero-dependency Protocol Buffers implementation specifically designed for embedded systems and resource-constrained environments. Built from the ground up for efficiency, LitePB provides complete Protocol Buffers serialization functionality with minimal overhead, making it ideal for microcontrollers, IoT devices, and edge computing applications.
 
 **Key Highlights:**
 - 🚀 **Zero External Dependencies** - Pure C++17 implementation, no third-party libraries required
 - 🔧 **Embedded-First Design** - Optimized for Native Linux and ESP32 (ESP-IDF)
 - 📦 **Complete Proto Support** - Full Proto2/Proto3 compatibility with 100% wire format interoperability
-- 🔄 **Async RPC Framework** - Production-ready RPC layer with peer-to-peer communication
 - 🎯 **Type-Safe Code Generation** - Python-based generator creates efficient, type-safe C++ code
 - ⚡ **High Performance** - Zero-copy parsing, compile-time optimizations, minimal allocations
 
@@ -42,18 +41,6 @@ LitePB is a high-performance, zero-dependency Protocol Buffers implementation sp
 - ❌ Groups (deprecated in protobuf)
 - ❌ Extensions (rarely used, complex feature)
 
-### Advanced RPC Framework
-
-The integrated RPC layer provides enterprise-grade remote procedure call capabilities:
-
-- **Async & Non-blocking** - Event-driven architecture with callback-based API
-- **Fully Bidirectional** - Any node can act as both client and server
-- **Transport Agnostic** - Works with UART, TCP, UDP, SPI, I2C, LoRa, CAN bus, or custom transports
-- **Type-Safe Stubs** - Generated client/server interfaces from .proto service definitions
-- **Fire-and-Forget Events** - One-way messages for notifications and broadcasts
-- **Robust Error Handling** - Comprehensive error detection and reporting
-- **Message Correlation** - Automatic request/response matching with timeouts
-- **Address-Based Routing** - Built-in support for multi-node networks
 
 ## Installation
 
@@ -82,9 +69,6 @@ Add to your `platformio.ini`:
 [env:your_environment]
 lib_deps = 
     https://github.com/jethome-iot/litepb.git
-
-build_flags = 
-    -DLITEPB_WITH_RPC  ; Enable RPC support (optional)
 ```
 
 ## Quick Start
@@ -167,106 +151,6 @@ int main() {
 }
 ```
 
-### RPC Communication
-
-**1. Define a service (sensor.proto):**
-```protobuf
-syntax = "proto3";
-import "litepb/rpc_options.proto";
-
-message SensorRequest {
-    int32 sensor_id = 1;
-}
-
-message SensorResponse {
-    float temperature = 1;
-    float humidity = 2;
-    int64 timestamp = 3;
-}
-
-service SensorService {
-    rpc GetReading(SensorRequest) returns (SensorResponse) {
-        option (litepb.rpc.method_id) = 1;
-    }
-    
-    rpc Calibrate(SensorRequest) returns (SensorResponse) {
-        option (litepb.rpc.method_id) = 2;
-    }
-}
-```
-
-**2. Implement the server:**
-```cpp
-#include "generated/sensor.pb.h"
-#include "litepb/rpc/channel.h"
-
-class SensorServiceImpl : public SensorServiceServer {
-public:
-    litepb::Result<SensorResponse> GetReading(const SensorRequest& request) override {
-        litepb::Result<SensorResponse> result;
-        
-        // Read sensor data
-        result.value.temperature = read_temperature(request.sensor_id);
-        result.value.humidity = read_humidity(request.sensor_id);
-        result.value.timestamp = get_timestamp();
-        
-        result.error.code = litepb::RpcError::OK;
-        return result;
-    }
-    
-    litepb::Result<SensorResponse> Calibrate(const SensorRequest& request) override {
-        // Calibration logic here
-        litepb::Result<SensorResponse> result;
-        calibrate_sensor(request.sensor_id);
-        result.error.code = litepb::RpcError::OK;
-        return result;
-    }
-};
-
-// Set up RPC channel and register service
-UartTransport transport("/dev/ttyUSB0", 115200);
-litepb::RpcChannel channel(transport, NODE_ADDRESS, 5000);
-
-SensorServiceImpl service;
-register_sensor_service(channel, service);
-
-// Process RPC messages
-while (running) {
-    channel.process();
-    delay(1);
-}
-```
-
-**3. Implement the client:**
-```cpp
-#include "generated/sensor.pb.h"
-#include "litepb/rpc/channel.h"
-
-UartTransport transport("/dev/ttyUSB1", 115200);
-litepb::RpcChannel channel(transport, CLIENT_ADDRESS, 5000);
-
-// Create client stub
-SensorServiceClient client(channel);
-
-// Make RPC call
-SensorRequest request;
-request.sensor_id = 1;
-
-client.GetReading(request, [](const litepb::Result<SensorResponse>& result) {
-    if (result.ok()) {
-        std::cout << "Temperature: " << result.value.temperature << "°C" << std::endl;
-        std::cout << "Humidity: " << result.value.humidity << "%" << std::endl;
-    } else {
-        std::cerr << "RPC failed: " << rpc_error_to_string(result.error.code) << std::endl;
-    }
-}, 3000, SERVER_ADDRESS);  // 3 second timeout
-
-// Process responses
-while (running) {
-    channel.process();
-    delay(1);
-}
-```
 
 ## Platform Support
 

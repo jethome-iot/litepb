@@ -2,12 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library-manifest-schema.json",
   "name": "LitePB",
   "version": "1.0.0",
-  "description": "Lightweight Protocol Buffers implementation for embedded systems with RPC support",
+  "description": "Lightweight Protocol Buffers implementation for embedded systems",
   "keywords": [
     "protobuf",
     "protocol-buffers",
     "serialization",
-    "rpc",
     "embedded",
     "esp32",
     "linux",
@@ -30,8 +29,7 @@
   "headers": "litepb.h",
   "examples": [
     "examples/cpp/serialization/basic/*",
-    "examples/cpp/serialization/all_types/*",
-    "examples/cpp/rpc/litepb_rpc/*"
+    "examples/cpp/serialization/all_types/*"
   ],
   "dependencies": {},
   "export": {

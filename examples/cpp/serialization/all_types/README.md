@@ -379,10 +379,9 @@ msg.field_map_string_int32.clear();
 ## Next Steps
 
 1. **Study the Implementation**: Examine generated code in `generated/`
-2. **Try RPC**: See [RPC example](../../rpc/litepb_rpc/) for remote calls
-3. **Optimize Your Messages**: Apply learnings to your own protos
-4. **Benchmark**: Compare performance with your use case
-5. **Contribute**: Found an issue? Submit a PR!
+2. **Optimize Your Messages**: Apply learnings to your own protos
+3. **Benchmark**: Compare performance with your use case
+4. **Contribute**: Found an issue? Submit a PR!
 
 ## Project Files
 

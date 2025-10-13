@@ -10,8 +10,6 @@ import tempfile
 from typing import List, Dict, Optional
 from google.protobuf import descriptor_pb2 as pb2
 
-from .rpc_options import RpcMethodOptions, RpcServiceOptions, MethodOptions, ServiceOptions, CallDirection
-
 
 class ProtoParser:
     """Parse .proto files using protoc and return FileDescriptorProto."""
@@ -87,75 +85,3 @@ class ProtoParser:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
     
-    def _parse_extension_fields(self, data: bytes) -> Dict[int, int]:
-        """Parse extension fields from serialized protobuf data."""
-        extensions = {}
-        i = 0
-        
-        while i < len(data):
-            # Read varint tag
-            tag, i = self._read_varint(data, i)
-            field_number = tag >> 3
-            wire_type = tag & 0x07
-            
-            if wire_type == 0:  # Varint
-                value, i = self._read_varint(data, i)
-                extensions[field_number] = value
-            elif wire_type == 2:  # Length-delimited
-                length, i = self._read_varint(data, i)
-                i += length
-            else:
-                # Skip unknown wire types
-                break
-        
-        return extensions
-    
-    def _read_varint(self, data: bytes, pos: int) -> tuple:
-        """Read a varint from bytes at position pos, return (value, new_pos)."""
-        result = 0
-        shift = 0
-        
-        while pos < len(data):
-            byte = data[pos]
-            pos += 1
-            result |= (byte & 0x7F) << shift
-            if not (byte & 0x80):
-                break
-            shift += 7
-        
-        return result, pos
-    
-    def extract_method_options(self, method_proto: pb2.MethodDescriptorProto) -> RpcMethodOptions:
-        """Extract RPC method options from method descriptor."""
-        if not method_proto.HasField('options'):
-            return RpcMethodOptions()
-        
-        options_data = method_proto.options.SerializeToString()
-        extensions = self._parse_extension_fields(options_data)
-        
-        default_timeout_ms = extensions.get(MethodOptions.DEFAULT_TIMEOUT_MS, 5000)
-        method_id = extensions.get(MethodOptions.METHOD_ID, None)
-        
-        # New options
-        direction_value = extensions.get(MethodOptions.DIRECTION, 0)
-        direction = CallDirection(direction_value)
-        is_event = bool(extensions.get(MethodOptions.IS_EVENT, 0))
-        
-        return RpcMethodOptions(
-            method_id=method_id,
-            default_timeout_ms=default_timeout_ms,
-            direction=direction,
-            is_event=is_event
-        )
-    
-    def extract_service_options(self, service_proto: pb2.ServiceDescriptorProto) -> RpcServiceOptions:
-        """Extract RPC service options from service descriptor."""
-        if not service_proto.HasField('options'):
-            return RpcServiceOptions()
-        
-        options_data = service_proto.options.SerializeToString()
-        extensions = self._parse_extension_fields(options_data)
-        
-        service_id = extensions.get(ServiceOptions.SERVICE_ID, None)
-        
-        return RpcServiceOptions(service_id=service_id)
