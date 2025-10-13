@@ -101,17 +101,6 @@ else:
         else:
             print(f"[litepb] WARN: Directory not found: {d}")
 
-    # Add litepb_proto_root to custom_litepb_include_dirs if not already present
-    if str(litepb_proto_root) not in proto_include_paths:
-        proto_include_paths.insert(0, str(litepb_proto_root))
-
-    # If custom_litepb_use_rpc is set -
-    # need to add $LITEPB_ROOT/proto/litepb/rpc_protocol.proto" to proto_files
-    if custom_litepb_use_rpc:
-        print(f"[litepb] RPC enabled")
-        rpc_proto = litepb_proto_root / "litepb" / "rpc_protocol.proto"
-        proto_files.append(str(rpc_proto.resolve()))
-
     # Discover *additional* .proto files inside include dirs so SCons can track imports.
     # This makes rebuilds more accurate when included files change.
     dep_proto_files_set = set(proto_files)
