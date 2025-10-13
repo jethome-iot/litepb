@@ -8,15 +8,16 @@
 LitePB is a high-performance, zero-dependency Protocol Buffers implementation specifically designed for embedded systems and resource-constrained environments. Built from the ground up for efficiency, LitePB provides complete Protocol Buffers serialization functionality with minimal overhead, making it ideal for microcontrollers, IoT devices, and edge computing applications.
 
 **Key Highlights:**
-- 🚀 **Zero External Dependencies** - Pure C++17 implementation, no third-party libraries required
-- 🔧 **Embedded-First Design** - Optimized for Native Linux and ESP32 (ESP-IDF)
+- 🚀 **Zero External Dependencies** - Pure C++ implementation, no third-party libraries required
+- 🔧 **Embedded-First Design** - Optimized for resource-constrained environments
 - 📦 **Complete Proto Support** - Full Proto2/Proto3 compatibility with 100% wire format interoperability
 - 🎯 **Type-Safe Code Generation** - Python-based generator creates efficient, type-safe C++ code
 - ⚡ **High Performance** - Zero-copy parsing, compile-time optimizations, minimal allocations
+- 🏗️ **Dual Build System** - Supports both PlatformIO (embedded) and CMake (general C++)
 
 ## Production Status
 
-✅ **Production Ready** - All 149 tests passing (139 PlatformIO + 10 interoperability tests)  
+✅ **Production Ready** - All 187 tests passing (177 PlatformIO unit tests + 10 interoperability tests)  
 ✅ **100% Wire Format Compatibility** - Full interoperability with standard Protocol Buffers (protoc)  
 ✅ **Battle-Tested** - Extensively tested on embedded platforms and native systems  
 
@@ -41,12 +42,11 @@ LitePB is a high-performance, zero-dependency Protocol Buffers implementation sp
 - ❌ Groups (deprecated in protobuf)
 - ❌ Extensions (rarely used, complex feature)
 
-
 ## Installation
 
 ### Prerequisites
 
-- C++17 compatible compiler (GCC 7+, Clang 5+)
+- C++11 compatible compiler (GCC 7+, Clang 5+) for library, C++17 for oneofs
 - Python 3.7+ (for code generation)
 - Protocol Buffers compiler (`protoc`) - automatically downloaded if not present
 
@@ -69,6 +69,24 @@ Add to your `platformio.ini`:
 [env:your_environment]
 lib_deps = 
     https://github.com/jethome-iot/litepb.git
+```
+
+### CMake Integration
+
+```cmake
+# Add LitePB as a subdirectory
+add_subdirectory(path/to/litepb/cmake)
+
+# Link against LitePB
+target_link_libraries(your_target PRIVATE LitePB::litepb)
+
+# Use the generator (LITEPB_GENERATOR variable is automatically available)
+add_custom_command(
+    OUTPUT generated/message.pb.h generated/message.pb.cpp
+    COMMAND ${LITEPB_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/message.proto 
+            -o ${CMAKE_CURRENT_BINARY_DIR}/generated
+    DEPENDS message.proto
+)
 ```
 
 ## Quick Start
@@ -151,17 +169,13 @@ int main() {
 }
 ```
 
+## Build Systems
 
-## Platform Support
+LitePB supports both **PlatformIO** (for embedded development) and **CMake** (for general C++ projects):
 
-LitePB is specifically designed for:
-
-- **Native Linux** - Full support with GCC 7+ or Clang 5+
-- **ESP32 (ESP-IDF)** - Complete integration with ESP-IDF framework
-
-### Build System
-
-LitePB uses **PlatformIO** for build management, providing first-class support with library.json configuration.
+- **PlatformIO** - First-class support via `library.json` configuration
+- **CMake** - Static library build with proper installation and packaging support
+- **Code Generator** - Works seamlessly with both build systems
 
 ## API Documentation
 
@@ -206,54 +220,67 @@ class InputStream {
 };
 ```
 
-## RPC Framework
-
-The RPC framework provides a complete solution for remote procedure calls:
-
-- **Service Definition** - Define services in .proto files
-- **Code Generation** - Automatic client/server stub generation
-- **Transport Layer** - Pluggable transport abstraction
-- **Message Framing** - Automatic framing for stream transports
-- **Error Handling** - Comprehensive error reporting
-- **Async Operations** - Non-blocking, callback-based API
-
 ## Examples
 
-### Serialization Examples
+### PlatformIO Examples
 
-- **[Basic Example](examples/cpp/serialization/basic/)** - Simple message serialization
-- **[All Types Showcase](examples/cpp/serialization/all_types/)** - Demonstrates all supported protobuf types
+Located in `examples/cpp/platformio/serialization/`:
 
-### RPC Examples
+- **[Basic Example](examples/cpp/platformio/serialization/basic/)** - Simple person message serialization
+- **[All Types Showcase](examples/cpp/platformio/serialization/all_types/)** - Demonstrates all supported protobuf types
 
-- **[Sensor Network](examples/cpp/rpc/litepb_rpc/)** - Complete bidirectional RPC implementation with multiple transports
+### CMake Examples
+
+Located in `examples/cpp/cmake/`:
+
+- **[Basic Serialization](examples/cpp/cmake/basic_serialization/)** - Simple person message serialization
+- **[All Types](examples/cpp/cmake/all_types/)** - Comprehensive type showcase
 
 ## Testing
 
 LitePB includes a comprehensive test suite ensuring reliability and compatibility:
 
 ```bash
-# Run all tests
+# Run PlatformIO unit tests (177 tests)
 pio test
 
-# Run specific test environment
-pio test -e test_scalar_types
+# Run interoperability tests (10 tests)
+./scripts/run_interop_tests.sh
 
-# Run with verbose output
-pio test -vvv
+# Run PlatformIO examples
+./scripts/run_platformio_examples.sh
 
-# Run interoperability tests
-cd tests/cpp/interop
-./run_tests.sh
+# Run CMake examples
+./scripts/run_cmake_examples.sh
 ```
 
 ### Test Coverage
 
+- **Core Tests** - Stream operations, varint encoding, wire format
 - **Serialization Tests** - All protobuf types and edge cases
-- **RPC Tests** - Protocol, framing, error handling
-- **Interoperability Tests** - Wire format compatibility with protoc
-- **Platform Tests** - Embedded and native platform specific tests
-- **Performance Tests** - Benchmarks and optimization validation
+- **Interoperability Tests** - Wire format compatibility with protoc (CTest-based)
+- **Platform Tests** - Native and embedded platform validation
+- **Examples** - Working examples for both PlatformIO and CMake
+
+## Code Generator
+
+The LitePB code generator features a modular, extensible architecture:
+
+- **Language-Agnostic Parsing** - Core parser works for all target languages
+- **Pluggable Backends** - Easy to add new language support (TypeScript, Dart, etc.)
+- **Full Proto Support** - Proto2/Proto3 with all standard features
+- **Self-Installing** - Automatically manages Python dependencies
+
+```bash
+# Generate C++ code
+./litepb_gen message.proto -o output_dir/
+
+# With include paths
+./litepb_gen message.proto -I proto/ -o output/
+
+# With namespace prefix
+./litepb_gen message.proto -o output/ --namespace-prefix=my_namespace
+```
 
 ## License
 
