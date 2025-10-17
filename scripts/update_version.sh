@@ -34,7 +34,7 @@ update_version_files() {
     echo "Updating version files..."
     
     # Update CMakeLists.txt (portable sed with temp file)
-    sed "s/VERSION ${old_version}/VERSION ${new_version}/" "$CMAKE_FILE" > "${CMAKE_FILE}.tmp" && mv "${CMAKE_FILE}.tmp" "$CMAKE_FILE"
+    sed -E "s/^(project\([^\)]*VERSION[[:space:]]*)${old_version}/\1${new_version}/" "$CMAKE_FILE" > "${CMAKE_FILE}.tmp" && mv "${CMAKE_FILE}.tmp" "$CMAKE_FILE"
     echo "  ✓ Updated $CMAKE_FILE"
     
     # Update Python __init__.py
