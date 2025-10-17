@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package test.nested;
+
+// Simple nesting
+message OuterMessage {
+    message InnerMessage {
+        string inner_field = 1;
+        int32 inner_value = 2;
+    }
+    
+    InnerMessage inner = 1;
+    string outer_field = 2;
+}
+
+// Multiple levels of nesting
+message Level1 {
+    message Level2 {
+        message Level3 {
+            message Level4 {
+                string deepest_field = 1;
+            }
+            Level4 level4 = 1;
+            string level3_field = 2;
+        }
+        Level3 level3 = 1;
+        string level2_field = 2;
+    }
+    Level2 level2 = 1;
+    string level1_field = 2;
+}
+
+// Multiple nested types
+message Container {
+    message TypeA {
+        string a_field = 1;
+    }
+    
+    message TypeB {
+        int32 b_field = 1;
+    }
+    
+    message TypeC {
+        bool c_field = 1;
+    }
+    
+    TypeA type_a = 1;
+    TypeB type_b = 2;
+    TypeC type_c = 3;
+    repeated TypeA repeated_a = 4;
+    map<string, TypeB> map_b = 5;
+}
+
+// Nested with enums
+message MessageWithNestedEnum {
+    enum NestedEnum {
+        UNKNOWN = 0;
+        VALUE_A = 1;
+        VALUE_B = 2;
+    }
+    
+    message NestedMessage {
+        NestedEnum enum_field = 1;
+    }
+    
+    NestedEnum direct_enum = 1;
+    NestedMessage nested = 2;
+}
+
+// Cross-referencing nested types
+message CrossReference {
+    message SharedType {
+        string shared_field = 1;
+    }
+    
+    message UserA {
+        SharedType shared = 1;
+        string a_specific = 2;
+    }
+    
+    message UserB {
+        SharedType shared = 1;
+        int32 b_specific = 2;
+    }
+    
+    UserA user_a = 1;
+    UserB user_b = 2;
+    SharedType direct_shared = 3;
+}
+
+// Note: Recursive/self-referential message types are not supported due to C++ 
+// language limitations with std::optional and std::vector of incomplete types.
+// For example, TreeNode with "repeated TreeNode children" or "optional TreeNode parent"
+// causes compilation errors. Use pointers or custom allocators if needed.
+
+// Nested with all field types
+message ComplexNested {
+    message Inner {
+        string text = 1;
+        int32 number = 2;
+        repeated string tags = 3;
+        map<string, int32> values = 4;
+        oneof data {
+            bool bool_data = 5;
+            double double_data = 6;
+        }
+    }
+    
+    Inner single_inner = 1;
+    repeated Inner repeated_inner = 2;
+    map<string, Inner> mapped_inner = 3;
+    optional Inner optional_inner = 4;
+}
+
+// Deeply nested maps and repeated
+message DeeplyNestedCollections {
+    message Level1Item {
+        message Level2Item {
+            map<string, string> data = 1;
+        }
+        repeated Level2Item items = 1;
+    }
+    
+    map<string, Level1Item> root_map = 1;
+}
+
+// Empty nested messages
+message WithEmptyNested {
+    message EmptyInner {
+    }
+    
+    EmptyInner empty = 1;
+    repeated EmptyInner empty_repeated = 2;
+}
+
+// Nested message used as map value
+message NestedAsMapValue {
+    message ValueType {
+        message InnerValue {
+            string data = 1;
+        }
+        InnerValue inner = 1;
+        int32 id = 2;
+    }
+    
+    map<string, ValueType> values = 1;
+}

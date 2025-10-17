@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: ['dev', 'master']
+  pull_request:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
+    branches: [dev, master]
+
+jobs:
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Run format check
+        run: ./scripts/format_check.sh
+        
+  platformio-tests:
+    name: PlatformIO Tests
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Run PlatformIO unit tests
+        run: ./scripts/run_platformio_tests.sh
+        
+  esp32-build:
+    name: ESP32 Build
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Build ESP32 environments
+        run: pio test -e esp32_core -e esp32_serialization --without-uploading --without-testing
+        
+  interop-tests:
+    name: Interop Tests
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Run interoperability tests
+        run: ./scripts/run_interop_tests.sh
+        
+  platformio-examples:
+    name: PlatformIO Examples
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Build and run PlatformIO examples
+        run: ./scripts/run_platformio_examples.sh
+        
+  cmake-examples:
+    name: CMake Examples
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Build and run CMake examples
+        run: ./scripts/run_cmake_examples.sh
+          
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    container:
+      image: ghcr.io/jethome-iot/litepb-dev:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user root
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+          
+      - name: Run coverage tests
+        run: |
+          ./scripts/run_coverage_tests.sh
+          
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: tmp/native_coverage/coverage/coverage_report/
+          retention-days: 30
+          
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data
+          path: tmp/native_coverage/coverage/coverage_filtered.info
+          retention-days: 30
+          
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          lcov-file: tmp/native_coverage/coverage/coverage_filtered.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          filter-changed-files: true

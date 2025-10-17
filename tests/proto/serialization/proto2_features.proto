@@ -1,0 +1,84 @@
+syntax = "proto2";
+
+package test.proto2;
+
+// Test proto2-specific features
+message Proto2Message {
+    // Required fields (must be set)
+    required string required_string = 1;
+    required int32 required_int32 = 2;
+    
+    // Optional fields with explicit presence tracking
+    optional string optional_string = 3;
+    optional int32 optional_int32 = 4;
+    optional bool optional_bool = 5;
+    
+    // Optional with default values
+    optional int32 default_int32 = 6 [default = 42];
+    optional string default_string = 7 [default = "hello"];
+    optional bool default_bool = 8 [default = true];
+    optional double default_double = 9 [default = 3.14159];
+    
+    // Repeated field (no required/optional needed)
+    repeated string repeated_string = 10;
+    
+    // Nested message as optional
+    optional NestedProto2 optional_nested = 11;
+    
+    // Nested message as required
+    required NestedProto2 required_nested = 12;
+}
+
+message NestedProto2 {
+    optional string name = 1;
+    optional int32 value = 2 [default = 100];
+}
+
+// Test with all field types having defaults
+message DefaultValueMessage {
+    optional int32 int_value = 1 [default = -42];
+    optional uint32 uint_value = 2 [default = 42];
+    optional int64 long_value = 3 [default = -123456789012345];
+    optional uint64 ulong_value = 4 [default = 123456789012345];
+    optional float float_value = 5 [default = 2.71828];
+    optional double double_value = 6 [default = 3.14159265359];
+    optional bool bool_value = 7 [default = true];
+    optional string string_value = 8 [default = "default text"];
+    optional BytesEnum enum_value = 9 [default = VALUE_B];
+}
+
+enum BytesEnum {
+    VALUE_A = 0;
+    VALUE_B = 1;
+    VALUE_C = 2;
+}
+
+// Groups (deprecated but still part of proto2)
+message GroupMessage {
+    optional group MyGroup = 1 {
+        optional int32 field_a = 2;
+        optional string field_b = 3;
+    }
+    
+    repeated group RepeatedGroup = 4 {
+        optional int32 value = 5;
+    }
+}
+
+// Extension support
+message ExtendableMessage {
+    optional string base_field = 1;
+    extensions 100 to 199;
+}
+
+extend ExtendableMessage {
+    optional int32 extension_field = 100;
+    optional string extension_string = 101;
+}
+
+// Field options
+message FieldOptionsMessage {
+    optional int32 deprecated_field = 1 [deprecated = true];
+    repeated int32 packed_field = 2 [packed = true];
+    repeated int32 unpacked_field = 3 [packed = false];
+}

@@ -1,0 +1,79 @@
+#pragma once
+
+#include "litepb/litepb.h"
+#include "litepb/core/unknown_fields.h"
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <cstring>
+#include <optional>
+#include <variant>
+#include <unordered_map>
+#include <algorithm>
+#include <utility>
+
+{%- for import in imports %}
+#include "{{ import }}"
+{% endfor %}
+
+{% if namespace_prefix %}
+namespace {{ namespace_prefix }} {
+{% endif %}
+
+{% if package %}
+{%- set first_ns = namespace_parts[0] if namespace_parts else '' %}
+{%- if namespace_prefix and first_ns == namespace_prefix %}
+{# Skip the first namespace part if it matches the wrapper namespace #}
+{%- for ns in namespace_parts[1:] %}
+namespace {{ ns }} {
+{% endfor %}
+{%- else %}
+{%- for ns in namespace_parts %}
+namespace {{ ns }} {
+{% endfor %}
+{%- endif %}
+
+{% endif %}
+{%- for enum in enums %}
+{{ generate_enum(enum) }}
+{% endfor %}
+
+{%- if messages %}
+// Forward declarations
+{%- for message in messages %}
+struct {{ message.name }};
+{% endfor %}
+
+{% endif %}
+{%- for message in messages %}
+{{ generate_message_definition(message) }}
+{% endfor %}
+
+{% if package %}
+{%- set first_ns = namespace_parts[0] if namespace_parts else '' %}
+{%- if namespace_prefix and first_ns == namespace_prefix %}
+{# Skip the first namespace part if it matches the wrapper namespace #}
+{%- for ns in namespace_parts[1:]|reverse %}
+}  // namespace {{ ns }}
+{% endfor %}
+{%- else %}
+{%- for ns in namespace_parts|reverse %}
+}  // namespace {{ ns }}
+{% endfor %}
+{%- endif %}
+
+{% endif %}
+{% if namespace_prefix %}
+}  // namespace {{ namespace_prefix }}
+
+{% endif %}
+// Serializer specializations
+namespace litepb {
+
+// Forward declarations of all Serializer specializations
+{{ serializer_forward_declarations }}
+
+// Serializer implementations
+{{ serializers_code }}
+
+}  // namespace litepb

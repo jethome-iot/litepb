@@ -1,0 +1,41 @@
+# Build artifacts
+build/
+.pio/
+.vscode/
+*.tar.gz
+
+.cpm_cache/
+
+# Generated protobuf files (generated on-the-fly)
+*.pb.h
+*.pb.cpp
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+
+# CLion copilot TMP files:
+#generator/build_test/
+#generator/tmp/
+build_test/
+tmp/
+
+# Replit assets
+attached_assets/
+
+# ESP-IDF
+/CMakeLists.txt
+cpp/src/CMakeLists.txt
+sdkconfig.*

@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package litepb.test.interop;
+
+message BasicScalars {
+    int32 int32_field = 1;
+    string string_field = 2;
+}
+
+message AllScalars {
+  int32 v_int32 = 1;
+  int64 v_int64 = 2;
+  uint32 v_uint32 = 3;
+  uint64 v_uint64 = 4;
+  bool v_bool = 5;
+  string v_string = 6;
+  bytes v_bytes = 7;
+  float v_float = 8;
+  double v_double = 9;
+}
+
+message SignedInts {
+  sint32 v_sint32 = 1;
+  sint64 v_sint64 = 2;
+}
+
+message FixedTypes {
+  fixed32 v_fixed32 = 1;
+  fixed64 v_fixed64 = 2;
+  sfixed32 v_sfixed32 = 3;
+  sfixed64 v_sfixed64 = 4;
+}
+
+message RepeatedFields {
+  repeated int32 packed_ints = 1 [packed=true];
+  repeated string strings = 2;
+}
+
+message MapField {
+  map<string, int32> items = 1;
+}
+
+message Outer {
+  message Inner {
+    int32 value = 1;
+  }
+  Inner inner = 1;
+  string name = 2;
+}
+
+message OneofTest {
+  oneof choice {
+    int32 int_value = 1;
+    string string_value = 2;
+  }
+}
+
+enum TestEnum {
+  UNKNOWN = 0;
+  FIRST = 1;
+  SECOND = 2;
+}
+
+message EnumTest {
+  TestEnum value = 1;
+}
+
+// Proto3 explicit optional fields
+message OptionalFields {
+  optional int32 opt_int32 = 1;
+  optional string opt_string = 2;
+  optional bool opt_bool = 3;
+}
+
+// Empty message (edge case)
+message EmptyMessage {
+}
+
+// Unpacked repeated fields
+message UnpackedRepeated {
+  repeated int32 unpacked_ints = 1 [packed=false];
+  repeated float unpacked_floats = 2 [packed=false];
+}
+
+// Different map types
+message DifferentMaps {
+  map<int32, string> int_to_string = 1;
+  map<string, string> string_to_string = 2;
+  map<int64, int64> int_to_int = 3;
+}
+
+// Repeated messages
+message Item {
+  int32 id = 1;
+  string name = 2;
+}
+
+message RepeatedMessages {
+  repeated Item items = 1;
+}
+
+// Nested enum
+message NestedEnumTest {
+  enum Status {
+    UNKNOWN_STATUS = 0;
+    ACTIVE = 1;
+    INACTIVE = 2;
+  }
+  Status status = 1;
+  int32 code = 2;
+}
+
+// Large field numbers (test varint encoding)
+message LargeFieldNumbers {
+  int32 field_1 = 1;
+  int32 field_100 = 100;
+  int32 field_1000 = 1000;
+  int32 field_10000 = 10000;
+}
+
+// Unknown fields test - newer version with extra field
+message UnknownFieldsNew {
+  int32 known_field = 1;
+  string extra_field = 2;  // This will be unknown to the old version
+}
+
+// Unknown fields test - older version without extra field
+message UnknownFieldsOld {
+  int32 known_field = 1;
+}

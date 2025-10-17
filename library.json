@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library-manifest-schema.json",
+  "name": "LitePB",
+  "version": "1.0.0",
+  "description": "Lightweight Protocol Buffers implementation for embedded systems",
+  "keywords": [
+    "protobuf",
+    "protocol-buffers",
+    "serialization",
+    "embedded",
+    "esp32",
+    "linux",
+    "lightweight"
+  ],
+  "homepage": "https://github.com/jethome-iot/litepb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jethome-iot/litepb.git"
+  },
+  "authors": [
+    {
+      "name": "JetHome LLC",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": ["*"],
+  "headers": "litepb.h",
+  "examples": [
+    "examples/cpp/serialization/basic/*",
+    "examples/cpp/serialization/all_types/*"
+  ],
+  "dependencies": {},
+  "export": {
+    "include": [
+      "cpp/include/*",
+      "cpp/src/*",
+      "examples/*",
+      "generator/*",
+      "proto/*",
+      "scripts/platformio_generator.py",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      "cpp/*/CMakeLists.txt",
+      "*.pio/*",
+      "*.venv/*"
+    ]
+  },
+  "build": {
+    "flags": [],
+    "unflags": [],
+    "includeDir": "cpp/include",
+    "srcDir": "cpp/src",
+    "srcFilter": "+<*> -<.git/> -<.svn/>",
+    "extraScript": "scripts/platformio_generator.py"
+  }
+}

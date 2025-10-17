@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package test.repeated;
+
+import "enums.proto";
+
+// Basic repeated fields
+message RepeatedBasic {
+    repeated int32 int_values = 1;
+    repeated string string_values = 2;
+    repeated bool bool_values = 3;
+    repeated double double_values = 4;
+    repeated bytes bytes_values = 5;
+}
+
+// Repeated message fields
+message RepeatedMessages {
+    repeated SubMessage messages = 1;
+    repeated ComplexMessage complex_messages = 2;
+}
+
+message SubMessage {
+    string name = 1;
+    int32 value = 2;
+}
+
+message ComplexMessage {
+    int32 id = 1;
+    string data = 2;
+    repeated string tags = 3;
+    SubMessage sub = 4;
+}
+
+// Repeated enum fields
+message RepeatedEnums {
+    repeated test.enums.Color colors = 1;
+    repeated Status statuses = 2;
+}
+
+enum Status {
+    STATUS_UNKNOWN = 0;
+    STATUS_OK = 1;
+    STATUS_ERROR = 2;
+    STATUS_PENDING = 3;
+}
+
+// Packed vs unpacked repeated fields
+message PackedTest {
+    // Packed by default in proto3
+    repeated int32 packed_int32 = 1;
+    repeated int64 packed_int64 = 2;
+    repeated uint32 packed_uint32 = 3;
+    repeated uint64 packed_uint64 = 4;
+    repeated sint32 packed_sint32 = 5;
+    repeated sint64 packed_sint64 = 6;
+    repeated fixed32 packed_fixed32 = 7;
+    repeated fixed64 packed_fixed64 = 8;
+    repeated sfixed32 packed_sfixed32 = 9;
+    repeated sfixed64 packed_sfixed64 = 10;
+    repeated float packed_float = 11;
+    repeated double packed_double = 12;
+    repeated bool packed_bool = 13;
+    repeated Status packed_enum = 14;
+    
+    // Explicitly unpacked
+    repeated int32 unpacked_int32 = 15 [packed = false];
+    repeated double unpacked_double = 16 [packed = false];
+}
+
+// Large repeated fields test
+message LargeRepeated {
+    repeated string many_strings = 1;
+    repeated int32 many_ints = 2;
+    repeated LargeSubMessage many_messages = 3;
+}
+
+message LargeSubMessage {
+    bytes data = 1;
+    repeated int32 values = 2;
+    map<string, string> metadata = 3;
+}
+
+// Nested repeated fields
+message NestedRepeated {
+    message Level1 {
+        repeated Level2 level2_items = 1;
+    }
+    
+    message Level2 {
+        repeated Level3 level3_items = 1;
+    }
+    
+    message Level3 {
+        repeated string values = 1;
+    }
+    
+    repeated Level1 root_items = 1;
+}
+
+// Mixed repeated and singular
+message MixedFields {
+    string single_string = 1;
+    repeated int32 repeated_ints = 2;
+    SubMessage single_message = 3;
+    repeated SubMessage repeated_messages = 4;
+    optional string optional_string = 5;
+    repeated string repeated_strings = 6;
+}
+
+// Empty repeated fields
+message EmptyRepeated {
+    repeated int32 empty_ints = 1;
+    repeated string empty_strings = 2;
+    repeated SubMessage empty_messages = 3;
+}

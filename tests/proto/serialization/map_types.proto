@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package test.maps;
+
+// Basic map types
+message BasicMaps {
+    map<string, string> string_to_string = 1;
+    map<int32, int32> int_to_int = 2;
+    map<uint32, uint32> uint_to_uint = 3;
+    map<int64, int64> long_to_long = 4;
+    map<bool, bool> bool_to_bool = 5;
+    map<string, int32> string_to_int = 6;
+    map<int32, string> int_to_string = 7;
+}
+
+// Map with message values
+message MapWithMessages {
+    map<string, ValueMessage> string_to_message = 1;
+    map<int32, ValueMessage> int_to_message = 2;
+    map<uint64, ComplexValue> long_to_complex = 3;
+}
+
+message ValueMessage {
+    string name = 1;
+    int32 count = 2;
+    repeated string tags = 3;
+}
+
+message ComplexValue {
+    int32 id = 1;
+    map<string, string> metadata = 2;
+    repeated ValueMessage values = 3;
+}
+
+// Map with enum values
+message MapWithEnums {
+    map<string, Color> string_to_enum = 1;
+    map<int32, Status> int_to_status = 2;
+}
+
+enum Color {
+    COLOR_UNKNOWN = 0;
+    COLOR_RED = 1;
+    COLOR_GREEN = 2;
+    COLOR_BLUE = 3;
+}
+
+enum Status {
+    STATUS_UNKNOWN = 0;
+    STATUS_ACTIVE = 1;
+    STATUS_INACTIVE = 2;
+}
+
+// Nested maps
+message NestedMaps {
+    map<string, MapContainer> outer_map = 1;
+}
+
+message MapContainer {
+    map<string, int32> inner_map = 1;
+    map<int32, string> another_map = 2;
+}
+
+// All scalar key types
+message AllKeyTypes {
+    map<int32, string> int32_key = 1;
+    map<int64, string> int64_key = 2;
+    map<uint32, string> uint32_key = 3;
+    map<uint64, string> uint64_key = 4;
+    map<sint32, string> sint32_key = 5;
+    map<sint64, string> sint64_key = 6;
+    map<fixed32, string> fixed32_key = 7;
+    map<fixed64, string> fixed64_key = 8;
+    map<sfixed32, string> sfixed32_key = 9;
+    map<sfixed64, string> sfixed64_key = 10;
+    map<bool, string> bool_key = 11;
+    map<string, string> string_key = 12;
+}
+
+// All scalar value types
+message AllValueTypes {
+    map<string, double> string_to_double = 1;
+    map<string, float> string_to_float = 2;
+    map<string, int32> string_to_int32 = 3;
+    map<string, int64> string_to_int64 = 4;
+    map<string, uint32> string_to_uint32 = 5;
+    map<string, uint64> string_to_uint64 = 6;
+    map<string, sint32> string_to_sint32 = 7;
+    map<string, sint64> string_to_sint64 = 8;
+    map<string, fixed32> string_to_fixed32 = 9;
+    map<string, fixed64> string_to_fixed64 = 10;
+    map<string, sfixed32> string_to_sfixed32 = 11;
+    map<string, sfixed64> string_to_sfixed64 = 12;
+    map<string, bool> string_to_bool = 13;
+    map<string, string> string_to_string = 14;
+    map<string, bytes> string_to_bytes = 15;
+}
+
+// Map in combination with other fields
+message MixedWithMaps {
+    string regular_field = 1;
+    map<string, int32> map_field = 2;
+    repeated string repeated_field = 3;
+    optional int32 optional_field = 4;
+    ValueMessage message_field = 5;
+    map<int32, ValueMessage> message_map = 6;
+}
+
+// Empty maps
+message EmptyMaps {
+    map<string, string> empty_string_map = 1;
+    map<int32, ValueMessage> empty_message_map = 2;
+}
