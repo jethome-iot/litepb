@@ -12,7 +12,7 @@ LitePB is a high-performance, zero-dependency Protocol Buffers implementation sp
 - 🔧 **Embedded-First Design** - Optimized for resource-constrained environments
 - 📦 **Complete Proto Support** - Full Proto2/Proto3 compatibility with 100% wire format interoperability
 - 🎯 **Type-Safe Code Generation** - Python-based generator creates efficient, type-safe C++ code
-- ⚡ **High Performance** - Zero-copy parsing, compile-time optimizations, minimal allocations
+- ⚡ **High Performance** - Efficient parsing with minimal copies, compile-time optimizations, minimal allocations
 - 🏗️ **Dual Build System** - Supports both PlatformIO (embedded) and CMake (general C++)
 
 ## Production Status
@@ -46,7 +46,7 @@ LitePB is a high-performance, zero-dependency Protocol Buffers implementation sp
 
 ### Prerequisites
 
-- C++11 compatible compiler (GCC 7+, Clang 5+) for library, C++17 for oneofs
+- C++17 compatible compiler (GCC 7+, Clang 5+)
 - Python 3.7+ (for code generation)
 - Protocol Buffers compiler (`protoc`) - automatically downloaded if not present
 

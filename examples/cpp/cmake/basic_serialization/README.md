@@ -14,7 +14,7 @@ This example demonstrates basic Protocol Buffer serialization using LitePB with 
 ### Prerequisites
 
 - CMake 3.14 or higher
-- C++11 compatible compiler
+- C++17 compatible compiler
 - LitePB generator (`litepb_gen` in the project root)
 
 ### Build Instructions

@@ -5,7 +5,7 @@ project(LitePB
     DESCRIPTION "Lightweight Protocol Buffer serialization library for embedded systems"
     LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 get_filename_component(LITEPB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
@@ -24,7 +24,7 @@ target_include_directories(litepb
         $<INSTALL_INTERFACE:include>
 )
 
-target_compile_features(litepb PUBLIC cxx_std_11)
+target_compile_features(litepb PUBLIC cxx_std_17)
 
 set_target_properties(litepb PROPERTIES
     POSITION_INDEPENDENT_CODE ON
