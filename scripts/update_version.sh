@@ -26,23 +26,35 @@ validate_version() {
     fi
 }
 
+# Escape regex metacharacters in a string for use in sed patterns
+escape_sed_regex() {
+    # Escape: . \ * [ ] ^ $ ( ) { } | ?
+    echo "$1" | sed -e 's/[.[\*^$(){}|?\\]/\\&/g'
+}
+
 # Function to update version in all files (portable sed replacement)
 update_version_files() {
     local old_version=$1
     local new_version=$2
     
+    # Escape regex metacharacters for sed
+    local old_version_escaped
+    local new_version_escaped
+    old_version_escaped=$(escape_sed_regex "$old_version")
+    new_version_escaped=$(escape_sed_regex "$new_version")
+
     echo "Updating version files..."
     
     # Update CMakeLists.txt (portable sed with temp file)
-    sed -E "s/^(project\([^\)]*VERSION[[:space:]]*)${old_version}/\1${new_version}/" "$CMAKE_FILE" > "${CMAKE_FILE}.tmp" && mv "${CMAKE_FILE}.tmp" "$CMAKE_FILE"
+    sed "s/VERSION ${old_version_escaped}/VERSION ${new_version_escaped}/" "$CMAKE_FILE" > "${CMAKE_FILE}.tmp" && mv "${CMAKE_FILE}.tmp" "$CMAKE_FILE"
     echo "  ✓ Updated $CMAKE_FILE"
     
     # Update Python __init__.py
-    sed "s/__version__ = '${old_version}'/__version__ = '${new_version}'/" "$PYTHON_FILE" > "${PYTHON_FILE}.tmp" && mv "${PYTHON_FILE}.tmp" "$PYTHON_FILE"
+    sed "s/__version__ = '${old_version_escaped}'/__version__ = '${new_version_escaped}'/" "$PYTHON_FILE" > "${PYTHON_FILE}.tmp" && mv "${PYTHON_FILE}.tmp" "$PYTHON_FILE"
     echo "  ✓ Updated $PYTHON_FILE"
     
     # Update Dockerfile
-    sed "s/org.opencontainers.image.version=\"${old_version}\"/org.opencontainers.image.version=\"${new_version}\"/" "$DOCKER_FILE" > "${DOCKER_FILE}.tmp" && mv "${DOCKER_FILE}.tmp" "$DOCKER_FILE"
+    sed "s/org.opencontainers.image.version=\"${old_version_escaped}\"/org.opencontainers.image.version=\"${new_version_escaped}\"/" "$DOCKER_FILE" > "${DOCKER_FILE}.tmp" && mv "${DOCKER_FILE}.tmp" "$DOCKER_FILE"
     echo "  ✓ Updated $DOCKER_FILE"
 }
 
