@@ -5,11 +5,16 @@ on:
     branches: ['dev', 'master']
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
+    branches: [dev, master]
 
 jobs:
   format-check:
     name: Format Check
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -26,6 +31,7 @@ jobs:
   platformio-tests:
     name: PlatformIO Tests
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -42,6 +48,7 @@ jobs:
   esp32-build:
     name: ESP32 Build
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -58,6 +65,7 @@ jobs:
   interop-tests:
     name: Interop Tests
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -74,6 +82,7 @@ jobs:
   platformio-examples:
     name: PlatformIO Examples
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -90,6 +99,7 @@ jobs:
   cmake-examples:
     name: CMake Examples
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
@@ -106,6 +116,7 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     container:
       image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
