@@ -46,6 +46,27 @@ update_version_files() {
     echo "  ✓ Updated $DOCKER_FILE"
 }
 
+# Function to commit version changes
+commit_version_changes() {
+    local version=$1
+    
+    echo ""
+    echo "Committing version changes..."
+    
+    # Stage the modified files
+    git add "$CMAKE_FILE" "$PYTHON_FILE" "$DOCKER_FILE"
+    
+    # Check if there are changes to commit
+    if git diff --cached --quiet; then
+        echo "⚠️  Warning: No changes to commit (files may already be at version ${version})"
+        return 0
+    fi
+    
+    # Create commit
+    git commit -m "Bump version to ${version}"
+    echo "  ✓ Created commit: Bump version to ${version}"
+}
+
 # Function to create git tag
 create_git_tag() {
     local version=$1
@@ -59,8 +80,6 @@ create_git_tag() {
     else
         git tag -a "$tag" -m "Release version ${version}"
         echo "  ✓ Created tag: $tag"
-        echo ""
-        echo "To push the tag to remote, run: git push origin $tag"
     fi
 }
 
@@ -79,6 +98,13 @@ read -p "Enter new version (e.g., 1.0.1): " new_version
 
 # Validate the new version
 validate_version "$new_version"
+
+# Check if version is actually changing
+if [ "$new_version" = "$current_version" ]; then
+    echo "❌ Error: New version ($new_version) is the same as current version ($current_version)"
+    echo "Please specify a different version."
+    exit 1
+fi
 
 # Confirm the update
 echo ""
@@ -99,6 +125,9 @@ echo ""
 # Update version in all files
 update_version_files "$current_version" "$new_version"
 
+# Commit the changes
+commit_version_changes "$new_version"
+
 # Create git tag
 create_git_tag "$new_version"
 
@@ -106,6 +135,6 @@ echo ""
 echo "✅ Version successfully updated to $new_version!"
 echo ""
 echo "Next steps:"
-echo "  1. Review the changes: git diff"
-echo "  2. Commit the changes: git add -A && git commit -m 'Bump version to ${new_version}'"
+echo "  1. Review the changes: git show"
+echo "  2. Push the commit: git push"
 echo "  3. Push the tag: git push origin v${new_version}"
