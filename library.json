@@ -25,7 +25,7 @@
   ],
   "license": "MIT",
   "frameworks": "*",
-  "platforms": ["native", "espressif32"],
+  "platforms": ["*"],
   "headers": "litepb.h",
   "examples": [
     "examples/cpp/serialization/basic/*",
