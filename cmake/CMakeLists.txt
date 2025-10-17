@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(LitePB 
-    VERSION 1.0.2
+    VERSION 1.0.3
     DESCRIPTION "Lightweight Protocol Buffer serialization library for embedded systems"
     LANGUAGES CXX)
 
