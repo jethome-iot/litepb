@@ -5,7 +5,7 @@ FROM python:3.11-slim
 
 LABEL org.opencontainers.image.title="LitePB Development Environment" \
       org.opencontainers.image.description="Development container for LitePB - Lightweight Protocol Buffer serialization library for embedded systems" \
-      org.opencontainers.image.version="1.0.1" \
+      org.opencontainers.image.version="1.0.2" \
       org.opencontainers.image.vendor="LitePB Project" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.source="https://github.com/litepb/litepb"
