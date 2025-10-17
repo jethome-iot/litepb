@@ -43,7 +43,7 @@ jobs:
     name: ESP32 Build
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/jethome-iot/jethome-dev-platformio:latest
+      image: ghcr.io/jethome-iot/litepb-dev:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
